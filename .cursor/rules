@@ -1,0 +1,720 @@
+# Multi-Agent Development Rules
+
+## Project Structure Guidelines
+
+### Repository Organization
+```
+agents/
+├── shared/                     # Shared libraries and utilities
+│   ├── common/                 # Common agent utilities
+│   ├── clients/               # Reusable API clients
+│   ├── models/                # Shared data models
+│   └── testing/               # Testing utilities
+├── {agent-name}/              # Individual agent directories
+│   ├── src/                   # Source code
+│   │   ├── agent/             # Core agent modules
+│   │   ├── clients/           # Agent-specific clients
+│   │   ├── models/            # Agent-specific models
+│   │   ├── utils/             # Agent utilities
+│   │   └── config/            # Configuration management
+│   ├── tests/                 # Test files
+│   │   ├── unit/              # Unit tests
+│   │   ├── integration/       # Integration tests
+│   │   └── e2e/               # End-to-end tests
+│   ├── docker/                # Docker configurations
+│   ├── k8s/                   # Kubernetes manifests
+│   ├── docs/                  # Agent documentation
+│   ├── scripts/               # Agent-specific scripts
+│   ├── requirements/          # Python dependencies
+│   ├── Makefile              # Agent-specific build targets
+│   └── .env.example          # Environment template
+├── tools/                     # Development and deployment tools
+│   ├── scripts/               # Common scripts
+│   └── templates/             # Agent templates
+├── Makefile                   # Root Makefile for all agents
+├── docker-compose.yml         # Local development environment
+└── pyproject.toml            # Root Python configuration
+```
+
+### Agent Naming Convention
+- Use kebab-case for agent directory names (e.g., `llm-release-radar`, `market-analyzer`)
+- Agent names should be descriptive and indicate their primary function
+- Each agent must have a unique namespace for Kubernetes deployment
+
+## Makefile-Based Development Workflow
+
+### Root Makefile Targets
+The root `Makefile` provides commands for managing all agents:
+
+```makefile
+# Development commands
+.PHONY: help setup clean lint test build deploy
+
+help:           ## Show this help
+setup:          ## Set up development environment for all agents
+clean:          ## Clean all build artifacts
+lint:           ## Run linting on all agents
+test:           ## Run tests for all agents
+build:          ## Build Docker images for all agents
+deploy:         ## Deploy all agents to Kubernetes
+list-agents:    ## List all available agents
+```
+
+### Agent-Specific Makefile Targets
+Each agent must have a `Makefile` with standardized targets:
+
+```makefile
+# Required targets for all agents
+.PHONY: help setup clean lint test build push deploy status logs
+
+help:           ## Show agent-specific help
+setup:          ## Install dependencies and set up environment
+clean:          ## Clean build artifacts and cache
+lint:           ## Run code linting (black, isort, flake8, mypy)
+test:           ## Run all tests (unit, integration, e2e)
+test-unit:      ## Run unit tests only
+test-integration: ## Run integration tests only
+test-e2e:       ## Run end-to-end tests
+coverage:       ## Generate test coverage report
+build:          ## Build Docker image
+push:           ## Push Docker image to registry
+deploy:         ## Deploy to Kubernetes
+status:         ## Check deployment status
+logs:           ## Show application logs
+shell:          ## Open shell in running container
+```
+
+### Standard Makefile Implementation
+```makefile
+# Agent configuration
+AGENT_NAME := $(shell basename $(CURDIR))
+IMAGE_NAME := $(AGENT_NAME)
+IMAGE_TAG := $(shell git rev-parse --short HEAD)
+REGISTRY := localhost:5000  # Local registry for Pi 5
+
+# Python configuration
+PYTHON := python3
+VENV := .venv
+REQUIREMENTS := requirements/requirements.txt
+DEV_REQUIREMENTS := requirements/requirements-dev.txt
+
+# Docker configuration
+DOCKERFILE := docker/Dockerfile
+DOCKER_CONTEXT := .
+
+# Kubernetes configuration
+K8S_NAMESPACE := agents
+K8S_MANIFESTS := k8s/
+
+# Default target
+.DEFAULT_GOAL := help
+
+help: ## Show this help
+	@echo "Available targets for $(AGENT_NAME):"
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+setup: ## Install dependencies and set up environment
+	$(PYTHON) -m venv $(VENV)
+	$(VENV)/bin/pip install --upgrade pip
+	$(VENV)/bin/pip install -r $(REQUIREMENTS)
+	$(VENV)/bin/pip install -r $(DEV_REQUIREMENTS)
+	$(VENV)/bin/pre-commit install
+
+clean: ## Clean build artifacts and cache
+	rm -rf $(VENV)
+	rm -rf .pytest_cache
+	rm -rf .coverage
+	rm -rf htmlcov/
+	rm -rf dist/
+	rm -rf build/
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+
+lint: ## Run code linting
+	$(VENV)/bin/black --check src/ tests/
+	$(VENV)/bin/isort --check-only src/ tests/
+	$(VENV)/bin/flake8 src/ tests/
+	$(VENV)/bin/mypy src/
+	$(VENV)/bin/bandit -r src/
+
+lint-fix: ## Fix linting issues
+	$(VENV)/bin/black src/ tests/
+	$(VENV)/bin/isort src/ tests/
+
+test: test-unit test-integration ## Run all tests
+
+test-unit: ## Run unit tests
+	$(VENV)/bin/pytest tests/unit/ -v --cov=src --cov-report=html --cov-report=term
+
+test-integration: ## Run integration tests
+	$(VENV)/bin/pytest tests/integration/ -v
+
+test-e2e: ## Run end-to-end tests
+	$(VENV)/bin/pytest tests/e2e/ -v
+
+coverage: ## Generate test coverage report
+	$(VENV)/bin/coverage html
+	@echo "Coverage report generated in htmlcov/"
+
+build: ## Build Docker image
+	docker build -f $(DOCKERFILE) -t $(IMAGE_NAME):$(IMAGE_TAG) -t $(IMAGE_NAME):latest $(DOCKER_CONTEXT)
+
+push: build ## Push Docker image to registry
+	docker tag $(IMAGE_NAME):$(IMAGE_TAG) $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
+	docker tag $(IMAGE_NAME):latest $(REGISTRY)/$(IMAGE_NAME):latest
+	docker push $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
+	docker push $(REGISTRY)/$(IMAGE_NAME):latest
+
+deploy: push ## Deploy to Kubernetes
+	kubectl create namespace $(K8S_NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -f $(K8S_MANIFESTS) -n $(K8S_NAMESPACE)
+
+status: ## Check deployment status
+	kubectl get all -n $(K8S_NAMESPACE) -l app=$(AGENT_NAME)
+
+logs: ## Show application logs
+	kubectl logs -f deployment/$(AGENT_NAME) -n $(K8S_NAMESPACE)
+
+shell: ## Open shell in running container
+	kubectl exec -it deployment/$(AGENT_NAME) -n $(K8S_NAMESPACE) -- /bin/bash
+
+undeploy: ## Remove deployment from Kubernetes
+	kubectl delete -f $(K8S_MANIFESTS) -n $(K8S_NAMESPACE) --ignore-not-found=true
+```
+
+## Code Style & Standards
+
+### Python Code Standards
+- **Formatting**: Use Black formatter with 88-character line limit
+- **Imports**: Use isort for import organization
+- **Type Hints**: All functions must include type hints
+- **Docstrings**: Use Google-style docstrings for all public functions
+- **Async/Await**: Use async/await for I/O operations
+- **Error Handling**: Implement proper exception handling with logging
+
+### Development Dependencies
+All agents must include these development tools in `requirements-dev.txt`:
+```
+black==23.12.1
+isort==5.13.2
+flake8==7.0.0
+mypy==1.8.0
+bandit==1.7.5
+pytest==7.4.4
+pytest-cov==4.1.0
+pytest-asyncio==0.23.2
+pre-commit==3.6.0
+```
+
+### Example Function Structure
+```python
+async def analyze_content(
+    content: str,
+    llm_client: LLMClient,
+    analysis_type: AnalysisType = AnalysisType.SUMMARY
+) -> AnalysisResult:
+    """Analyze content using the local LLM.
+    
+    Args:
+        content: Raw content to analyze
+        llm_client: Client for LLM communication
+        analysis_type: Type of analysis to perform
+        
+    Returns:
+        Structured analysis result
+        
+    Raises:
+        LLMConnectionError: When LLM server is unreachable
+        AnalysisError: When content analysis fails
+    """
+    try:
+        # Implementation here
+        pass
+    except Exception as e:
+        logger.error(f"Content analysis failed: {e}")
+        raise AnalysisError(f"Failed to analyze content: {e}") from e
+```
+
+## Architecture Rules
+
+### Component Separation
+- **Single Responsibility**: Each module has one clear purpose
+- **Dependency Injection**: Use dependency injection for external services
+- **Interface Abstraction**: Define interfaces for external dependencies
+- **Configuration Externalization**: All config via environment variables or config files
+
+### API Client Guidelines
+- **Retry Logic**: Implement exponential backoff for all external APIs
+- **Rate Limiting**: Respect API rate limits with proper delays
+- **Error Handling**: Handle network errors, timeouts, and API errors gracefully
+- **Logging**: Log all API calls with request/response details (excluding sensitive data)
+
+### Data Flow Rules
+- **Immutable Data**: Use immutable data structures where possible
+- **Validation**: Validate all external data at ingestion points
+- **Serialization**: Use Pydantic models for data validation and serialization
+- **Caching**: Implement caching for expensive operations
+
+## Docker & Kubernetes Rules
+
+### Docker Best Practices
+- **Multi-stage builds**: Use multi-stage builds for smaller images
+- **Non-root user**: Run containers as non-root user
+- **Layer optimization**: Minimize layers and use .dockerignore
+- **Security scanning**: Scan images for vulnerabilities
+- **ARM compatibility**: Ensure ARM64 compatibility for Raspberry Pi 5
+
+### Kubernetes Standards
+- **Resource limits**: Always define resource requests and limits
+- **Health checks**: Implement readiness and liveness probes
+- **ConfigMaps/Secrets**: Use ConfigMaps for config, Secrets for sensitive data
+- **Labels**: Use consistent labeling for all resources
+- **Namespaces**: Use dedicated namespace for the agent
+
+### Example Kubernetes Resource
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-radar-agent
+  namespace: llm-radar
+  labels:
+    app: llm-radar
+    component: agent
+    version: v1.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-radar
+      component: agent
+  template:
+    metadata:
+      labels:
+        app: llm-radar
+        component: agent
+    spec:
+      containers:
+      - name: agent
+        image: llm-radar-agent:latest
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+```
+
+## Testing Requirements
+
+### Test Coverage Standards
+- **Unit Tests**: Minimum 80% code coverage for all agents
+- **Integration Tests**: Test all external service integrations
+- **End-to-End Tests**: Test complete workflow execution
+- **Performance Tests**: Test under Raspberry Pi 5 resource constraints
+- **Contract Tests**: Test API contracts between services
+
+### Test Organization
+```
+tests/
+├── unit/                      # Unit tests
+│   ├── test_agent.py         # Core agent logic
+│   ├── test_clients.py       # Client classes
+│   ├── test_models.py        # Data models
+│   └── test_utils.py         # Utility functions
+├── integration/              # Integration tests
+│   ├── test_external_apis.py # External API integrations
+│   ├── test_database.py      # Database interactions
+│   └── test_message_queue.py # Message queue tests
+├── e2e/                      # End-to-end tests
+│   ├── test_workflows.py     # Complete workflows
+│   └── test_deployment.py    # Deployment tests
+├── fixtures/                 # Test data and fixtures
+│   ├── data/                 # Sample data files
+│   └── mocks/                # Mock responses
+└── conftest.py              # Shared test configuration
+```
+
+### Test Configuration (`conftest.py`)
+```python
+import pytest
+import asyncio
+from unittest.mock import AsyncMock, Mock
+from typing import Generator, AsyncGenerator
+
+@pytest.fixture(scope="session")
+def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
+    """Create an instance of the default event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+@pytest.fixture
+def mock_llm_client() -> AsyncMock:
+    """Mock LLM client for testing."""
+    client = AsyncMock()
+    client.query.return_value = {"response": "mocked response"}
+    return client
+
+@pytest.fixture
+def sample_config() -> dict:
+    """Sample configuration for testing."""
+    return {
+        "llm_host": "localhost:11434",
+        "api_timeout": 30,
+        "max_retries": 3
+    }
+
+@pytest.fixture
+async def agent_instance(mock_llm_client, sample_config):
+    """Create agent instance for testing."""
+    # Implementation depends on specific agent
+    pass
+```
+
+### Unit Test Structure
+```python
+# tests/unit/test_content_analyzer.py
+import pytest
+from unittest.mock import AsyncMock, Mock, patch
+from src.agent.content_analyzer import ContentAnalyzer
+from src.models.analysis import AnalysisResult, AnalysisType
+
+class TestContentAnalyzer:
+    """Test suite for ContentAnalyzer class."""
+
+    @pytest.fixture
+    def analyzer(self, mock_llm_client):
+        """Create ContentAnalyzer instance for testing."""
+        return ContentAnalyzer(llm_client=mock_llm_client)
+
+    @pytest.mark.asyncio
+    async def test_analyze_content_success(self, analyzer, mock_llm_client):
+        """Test successful content analysis."""
+        # Arrange
+        content = "Sample content for analysis"
+        expected_result = AnalysisResult(
+            summary="Test summary",
+            key_points=["point1", "point2"],
+            sentiment="positive"
+        )
+        mock_llm_client.query.return_value = expected_result.dict()
+
+        # Act
+        result = await analyzer.analyze_content(content, AnalysisType.SUMMARY)
+
+        # Assert
+        assert isinstance(result, AnalysisResult)
+        assert result.summary == "Test summary"
+        mock_llm_client.query.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_analyze_content_llm_error(self, analyzer, mock_llm_client):
+        """Test content analysis with LLM error."""
+        # Arrange
+        content = "Sample content"
+        mock_llm_client.query.side_effect = Exception("LLM connection failed")
+
+        # Act & Assert
+        with pytest.raises(Exception) as exc_info:
+            await analyzer.analyze_content(content)
+        
+        assert "LLM connection failed" in str(exc_info.value)
+
+    @pytest.mark.parametrize("analysis_type,expected_prompt", [
+        (AnalysisType.SUMMARY, "summarize"),
+        (AnalysisType.SENTIMENT, "analyze sentiment"),
+        (AnalysisType.KEYWORDS, "extract keywords")
+    ])
+    @pytest.mark.asyncio
+    async def test_analysis_types(self, analyzer, mock_llm_client, analysis_type, expected_prompt):
+        """Test different analysis types."""
+        content = "Test content"
+        await analyzer.analyze_content(content, analysis_type)
+        
+        # Verify correct prompt was used
+        call_args = mock_llm_client.query.call_args[0][0]
+        assert expected_prompt in call_args.lower()
+```
+
+### Integration Test Structure
+```python
+# tests/integration/test_external_apis.py
+import pytest
+import aiohttp
+from src.clients.notion_client import NotionClient
+from src.clients.search_client import SearchClient
+
+class TestExternalAPIIntegration:
+    """Integration tests for external API clients."""
+
+    @pytest.fixture
+    def notion_client(self):
+        """Create NotionClient for integration testing."""
+        return NotionClient(token="test_token", database_id="test_db")
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_notion_api_connection(self, notion_client):
+        """Test actual connection to Notion API."""
+        # This test requires actual API credentials
+        # Skip if running in CI without credentials
+        pytest.skip("Requires actual API credentials")
+
+    @pytest.mark.asyncio
+    async def test_search_api_rate_limiting(self):
+        """Test search API rate limiting behavior."""
+        # Implementation for rate limiting tests
+        pass
+```
+
+### End-to-End Test Structure
+```python
+# tests/e2e/test_workflows.py
+import pytest
+from src.agent.main import Agent
+
+class TestAgentWorkflows:
+    """End-to-end tests for complete agent workflows."""
+
+    @pytest.mark.e2e
+    @pytest.mark.asyncio
+    async def test_complete_workflow(self):
+        """Test complete agent execution workflow."""
+        # This test should run the entire agent process
+        # from trigger to completion
+        pass
+
+    @pytest.mark.e2e
+    @pytest.mark.slow
+    async def test_performance_under_load(self):
+        """Test agent performance under load."""
+        # Performance testing for Pi 5 constraints
+        pass
+```
+
+### Test Markers and Configuration
+Add to `pyproject.toml`:
+```toml
+[tool.pytest.ini_options]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests", 
+    "e2e: End-to-end tests",
+    "slow: Slow-running tests",
+    "performance: Performance tests"
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=80"
+]
+```
+
+### Continuous Testing
+- **Pre-commit hooks**: Run fast tests before commits
+- **CI Pipeline**: Run full test suite on push
+- **Nightly builds**: Run performance and load tests
+- **Test data management**: Use fixtures for consistent test data
+
+## Security Guidelines
+
+### API Key Management
+- **Never commit secrets**: Use .env files locally, Secrets in K8s
+- **Principle of least privilege**: Grant minimal required permissions
+- **Key rotation**: Implement regular key rotation procedures
+- **Audit logging**: Log all security-relevant events
+
+### Network Security
+- **Internal communication**: Use service discovery for internal calls
+- **TLS encryption**: Use HTTPS/TLS for all external communications
+- **Input validation**: Validate and sanitize all external inputs
+- **Rate limiting**: Implement rate limiting for all endpoints
+
+## Performance Guidelines
+
+### Resource Optimization
+- **Memory management**: Use generators and iterators for large datasets
+- **Connection pooling**: Reuse HTTP connections where possible
+- **Async operations**: Use async/await for I/O bound operations
+- **Caching**: Cache expensive computations and API responses
+
+### Raspberry Pi 5 Specific
+- **ARM optimization**: Use ARM-optimized libraries where available
+- **Memory constraints**: Design for 8GB RAM limit
+- **CPU efficiency**: Optimize for ARM Cortex-A76 architecture
+- **Storage I/O**: Minimize disk I/O operations
+
+## Logging & Monitoring
+
+### Logging Standards
+```python
+import logging
+import json
+from datetime import datetime
+
+# Structured logging format
+logger = logging.getLogger(__name__)
+
+def log_api_call(endpoint: str, method: str, status_code: int, duration: float):
+    """Log API call details."""
+    logger.info(json.dumps({
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": "api_call",
+        "endpoint": endpoint,
+        "method": method,
+        "status_code": status_code,
+        "duration_ms": duration * 1000,
+        "component": "web_searcher"
+    }))
+```
+
+### Monitoring Requirements
+- **Health endpoints**: Implement /health and /ready endpoints
+- **Metrics collection**: Use Prometheus-compatible metrics
+- **Error tracking**: Log all errors with context and stack traces
+- **Performance metrics**: Track response times and resource usage
+
+## Deployment Rules
+
+### CI/CD Pipeline
+- **Automated testing**: All tests must pass before deployment
+- **Security scanning**: Scan code and dependencies for vulnerabilities
+- **Image scanning**: Scan Docker images before deployment
+- **Rollback capability**: Maintain ability to rollback deployments
+
+### Environment Management
+- **Development**: Local development with Docker Compose
+- **Staging**: Minikube or k3s for testing
+- **Production**: Full Kubernetes cluster on Raspberry Pi 5
+
+### Deployment Checklist
+- [ ] All tests passing
+- [ ] Security scan completed
+- [ ] Resource limits configured
+- [ ] Health checks implemented
+- [ ] Monitoring configured
+- [ ] Secrets properly managed
+- [ ] Rollback plan documented
+
+## Error Handling Patterns
+
+### Exception Hierarchy
+```python
+class AgentError(Exception):
+    """Base exception for agent errors."""
+    pass
+
+class ConfigurationError(AgentError):
+    """Configuration-related errors."""
+    pass
+
+class ExternalServiceError(AgentError):
+    """External service communication errors."""
+    pass
+
+class LLMConnectionError(ExternalServiceError):
+    """LLM server connection errors."""
+    pass
+
+class NotionAPIError(ExternalServiceError):
+    """Notion API errors."""
+    pass
+```
+
+### Retry Patterns
+```python
+import asyncio
+from typing import Callable, Any
+import random
+
+async def retry_with_backoff(
+    func: Callable,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 60.0,
+    backoff_factor: float = 2.0
+) -> Any:
+    """Retry function with exponential backoff."""
+    for attempt in range(max_retries):
+        try:
+            return await func()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise
+            
+            delay = min(base_delay * (backoff_factor ** attempt), max_delay)
+            jitter = random.uniform(0, 0.1) * delay
+            await asyncio.sleep(delay + jitter)
+            
+            logger.warning(f"Attempt {attempt + 1} failed, retrying in {delay:.2f}s: {e}")
+```
+
+## Documentation Requirements
+
+### Code Documentation
+- **README files**: Each major component needs a README
+- **API documentation**: Document all public APIs
+- **Configuration docs**: Document all configuration options
+- **Deployment guides**: Step-by-step deployment instructions
+
+### Architecture Documentation
+- **System architecture**: High-level system design
+- **Data flow diagrams**: Visual representation of data flow
+- **API specifications**: OpenAPI specs for all APIs
+- **Troubleshooting guides**: Common issues and solutions
+
+## Version Control Rules
+
+### Commit Standards
+- **Conventional commits**: Use conventional commit format
+- **Atomic commits**: Each commit should represent a single logical change
+- **Descriptive messages**: Clear, descriptive commit messages
+- **No secrets**: Never commit secrets or sensitive data
+
+### Branch Strategy
+- **main**: Production-ready code
+- **develop**: Integration branch for features
+- **feature/***: Feature development branches
+- **hotfix/***: Critical bug fixes
+
+### Example Commit Messages
+```
+feat(web-searcher): add GitHub API integration
+fix(notion-client): handle rate limit errors gracefully
+docs(architecture): update deployment diagrams
+chore(deps): update dependencies to latest versions
+```
+
+## Review Checklist
+
+### Code Review Requirements
+- [ ] Code follows style guidelines
+- [ ] All functions have type hints and docstrings
+- [ ] Tests are included and passing
+- [ ] Error handling is implemented
+- [ ] Logging is appropriate
+- [ ] Resource usage is optimized for Pi 5
+- [ ] Security considerations addressed
+- [ ] Documentation is updated

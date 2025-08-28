@@ -1,0 +1,62 @@
+# Common Makefile variables and functions
+# This file is included by agent Makefiles to share configuration
+
+# Common configuration
+PYTHON := python3
+VENV := .venv
+REQUIREMENTS := requirements/requirements.txt
+DEV_REQUIREMENTS := requirements/requirements-dev.txt
+
+# Docker configuration
+REGISTRY := localhost:5000
+IMAGE_TAG := $(shell git rev-parse --short HEAD 2>/dev/null || echo "latest")
+
+# Kubernetes configuration
+K8S_NAMESPACE := agents
+
+# Common directories
+SRC_DIR := src
+TESTS_DIR := tests
+DOCKER_DIR := docker
+K8S_DIR := k8s
+DOCS_DIR := docs
+
+# Python paths for linting and testing
+PYTHON_PATHS := $(SRC_DIR) $(TESTS_DIR)
+
+# Common file patterns
+PYTHON_FILES := $(shell find $(PYTHON_PATHS) -name "*.py" 2>/dev/null || echo "")
+
+# Virtual environment activation
+VENV_ACTIVATE := $(VENV)/bin/activate
+
+# Check if we're in an agent directory
+AGENT_DIR := $(shell basename $(PWD))
+
+# Common functions
+define create_venv
+	@if [ ! -d $(VENV) ]; then \
+		echo "Creating virtual environment..."; \
+		$(PYTHON) -m venv $(VENV); \
+	fi
+endef
+
+define install_requirements
+	@if [ -f $(REQUIREMENTS) ]; then \
+		echo "Installing requirements..."; \
+		$(VENV)/bin/pip install --upgrade pip; \
+		$(VENV)/bin/pip install -r $(REQUIREMENTS); \
+	fi
+	@if [ -f $(DEV_REQUIREMENTS) ]; then \
+		echo "Installing dev requirements..."; \
+		$(VENV)/bin/pip install -r $(DEV_REQUIREMENTS); \
+	fi
+endef
+
+define setup_pre_commit
+	@if [ -f $(VENV)/bin/pre-commit ]; then \
+		echo "Setting up pre-commit hooks..."; \
+		$(VENV)/bin/pre-commit install; \
+	fi
+endef
+
