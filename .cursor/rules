@@ -214,15 +214,15 @@ async def analyze_content(
     analysis_type: AnalysisType = AnalysisType.SUMMARY
 ) -> AnalysisResult:
     """Analyze content using the local LLM.
-    
+
     Args:
         content: Raw content to analyze
         llm_client: Client for LLM communication
         analysis_type: Type of analysis to perform
-        
+
     Returns:
         Structured analysis result
-        
+
     Raises:
         LLMConnectionError: When LLM server is unreachable
         AnalysisError: When content analysis fails
@@ -431,7 +431,7 @@ class TestContentAnalyzer:
         # Act & Assert
         with pytest.raises(Exception) as exc_info:
             await analyzer.analyze_content(content)
-        
+
         assert "LLM connection failed" in str(exc_info.value)
 
     @pytest.mark.parametrize("analysis_type,expected_prompt", [
@@ -444,7 +444,7 @@ class TestContentAnalyzer:
         """Test different analysis types."""
         content = "Test content"
         await analyzer.analyze_content(content, analysis_type)
-        
+
         # Verify correct prompt was used
         call_args = mock_llm_client.query.call_args[0][0]
         assert expected_prompt in call_args.lower()
@@ -512,7 +512,7 @@ Add to `pyproject.toml`:
 [tool.pytest.ini_options]
 markers = [
     "unit: Unit tests",
-    "integration: Integration tests", 
+    "integration: Integration tests",
     "e2e: End-to-end tests",
     "slow: Slow-running tests",
     "performance: Performance tests"
@@ -663,11 +663,11 @@ async def retry_with_backoff(
         except Exception as e:
             if attempt == max_retries - 1:
                 raise
-            
+
             delay = min(base_delay * (backoff_factor ** attempt), max_delay)
             jitter = random.uniform(0, 0.1) * delay
             await asyncio.sleep(delay + jitter)
-            
+
             logger.warning(f"Attempt {attempt + 1} failed, retrying in {delay:.2f}s: {e}")
 ```
 

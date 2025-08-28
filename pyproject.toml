@@ -194,4 +194,3 @@ skips = ["B101", "B601"]  # Skip assert_used and shell_injection_process for tes
 
 [tool.bandit.assert_used]
 skips = ["*/test_*.py", "*/tests/*"]
-

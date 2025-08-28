@@ -1,11 +1,11 @@
 """Shared test configuration and fixtures for LLM Release Radar Agent."""
 
 import asyncio
-import pytest
+from typing import Any, Dict, Generator
 from unittest.mock import AsyncMock, Mock
-from typing import Generator, AsyncGenerator, Dict, Any
 
 import aiohttp
+import pytest
 from notion_client import AsyncClient as NotionClient
 
 
@@ -25,7 +25,7 @@ def mock_llm_client() -> AsyncMock:
         "response": "Mocked LLM response",
         "model": "qwen2:7b",
         "created_at": "2024-01-01T00:00:00Z",
-        "done": True
+        "done": True,
     }
     return client
 
@@ -37,11 +37,11 @@ def mock_notion_client() -> AsyncMock:
     client.databases.query.return_value = {
         "results": [],
         "next_cursor": None,
-        "has_more": False
+        "has_more": False,
     }
     client.pages.create.return_value = {
         "id": "test-page-id",
-        "created_time": "2024-01-01T00:00:00Z"
+        "created_time": "2024-01-01T00:00:00Z",
     }
     return client
 
@@ -50,16 +50,16 @@ def mock_notion_client() -> AsyncMock:
 def mock_http_session() -> AsyncMock:
     """Mock HTTP session for testing."""
     session = AsyncMock(spec=aiohttp.ClientSession)
-    
+
     # Mock response
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.text.return_value = "<html><body>Mock content</body></html>"
     mock_response.json.return_value = {"mock": "data"}
-    
+
     session.get.return_value.__aenter__.return_value = mock_response
     session.post.return_value.__aenter__.return_value = mock_response
-    
+
     return session
 
 
@@ -92,14 +92,14 @@ def sample_llm_news_data() -> Dict[str, Any]:
                 "key_features": [
                     "Improved reasoning capabilities",
                     "Better code generation",
-                    "Enhanced multimodal understanding"
+                    "Enhanced multimodal understanding",
                 ],
                 "impact_level": "high",
                 "source_links": [
                     "https://openai.com/blog/gpt-4-5-release",
-                    "https://github.com/openai/gpt-4.5"
+                    "https://github.com/openai/gpt-4.5",
                 ],
-                "summary": "OpenAI releases GPT-4.5 with significant improvements"
+                "summary": "OpenAI releases GPT-4.5 with significant improvements",
             },
             {
                 "company": "Google",
@@ -108,28 +108,25 @@ def sample_llm_news_data() -> Dict[str, Any]:
                 "key_features": [
                     "Faster inference",
                     "Lower cost",
-                    "Better factual accuracy"
+                    "Better factual accuracy",
                 ],
                 "impact_level": "high",
                 "source_links": [
                     "https://blog.google/technology/ai/gemini-pro-2-announcement"
                 ],
-                "summary": "Google announces Gemini Pro 2.0 with performance improvements"
-            }
+                "summary": "Google announces Gemini Pro 2.0 with performance improvements",
+            },
         ],
         "feature_announcements": [
             {
                 "company": "Microsoft",
                 "product": "Azure OpenAI Service",
                 "announcement_date": "2024-01-13",
-                "features": [
-                    "New fine-tuning capabilities",
-                    "Enhanced safety filters"
-                ],
+                "features": ["New fine-tuning capabilities", "Enhanced safety filters"],
                 "impact_level": "medium",
                 "source_links": [
                     "https://azure.microsoft.com/blog/azure-openai-updates"
-                ]
+                ],
             }
         ],
         "research_papers": [
@@ -139,10 +136,10 @@ def sample_llm_news_data() -> Dict[str, Any]:
                 "publication": "arXiv",
                 "date": "2024-01-11",
                 "summary": "New techniques for efficient LLM training",
-                "link": "https://arxiv.org/abs/2024.01234"
+                "link": "https://arxiv.org/abs/2024.01234",
             }
         ],
-        "summary": "This week saw major releases from OpenAI and Google, with significant improvements in model capabilities and performance."
+        "summary": "This week saw major releases from OpenAI and Google, with significant improvements in model capabilities and performance.",
     }
 
 
@@ -179,21 +176,21 @@ def sample_search_results() -> Dict[str, Any]:
                 "title": "OpenAI Announces GPT-4.5 with Major Improvements",
                 "link": "https://openai.com/blog/gpt-4-5-release",
                 "snippet": "OpenAI today released GPT-4.5, featuring enhanced reasoning...",
-                "date": "2024-01-12"
+                "date": "2024-01-12",
             },
             {
                 "position": 2,
                 "title": "Google's Gemini Pro 2.0 Delivers Better Performance",
                 "link": "https://blog.google/technology/ai/gemini-pro-2-announcement",
                 "snippet": "Google announces Gemini Pro 2.0 with faster inference...",
-                "date": "2024-01-14"
-            }
+                "date": "2024-01-14",
+            },
         ],
         "related_searches": [
             "LLM releases January 2024",
             "AI model announcements",
-            "GPT-4.5 features"
-        ]
+            "GPT-4.5 features",
+        ],
     }
 
 
@@ -201,11 +198,11 @@ def sample_search_results() -> Dict[str, Any]:
 async def agent_instance(mock_llm_client, mock_notion_client, sample_config):
     """Create agent instance for testing."""
     from src.agent.main import LLMReleaseRadarAgent
-    
+
     agent = LLMReleaseRadarAgent(
         config=sample_config,
         llm_client=mock_llm_client,
-        notion_client=mock_notion_client
+        notion_client=mock_notion_client,
     )
     return agent
 
@@ -237,13 +234,13 @@ pytestmark = [
 # Custom test utilities
 class MockAsyncContextManager:
     """Mock async context manager for testing."""
-    
+
     def __init__(self, return_value=None):
         self.return_value = return_value
-    
+
     async def __aenter__(self):
         return self.return_value
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
@@ -252,12 +249,11 @@ def create_mock_response(status=200, json_data=None, text_data=None):
     """Create a mock HTTP response."""
     mock_response = AsyncMock()
     mock_response.status = status
-    
+
     if json_data is not None:
         mock_response.json.return_value = json_data
-    
+
     if text_data is not None:
         mock_response.text.return_value = text_data
-    
-    return MockAsyncContextManager(mock_response)
 
+    return MockAsyncContextManager(mock_response)

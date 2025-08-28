@@ -59,4 +59,3 @@ define setup_pre_commit
 		$(VENV)/bin/pre-commit install; \
 	fi
 endef
-
