@@ -1,0 +1,135 @@
+# Pre-commit configuration for multi-agent repository
+# See https://pre-commit.com for more information
+
+repos:
+  # Python code formatting
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: [--line-length=88]
+        files: ^agents/.+\.py$
+
+  # Python import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=88]
+        files: ^agents/.+\.py$
+
+  # Python linting
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=88, --extend-ignore=E203,W503]
+        files: ^agents/.+\.py$
+
+  # Python security checks
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        files: ^agents/.+\.py$
+        exclude: ^agents/.+/tests/.+\.py$
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Remove trailing whitespace
+      - id: trailing-whitespace
+        exclude: ^agents/.+\.(md|yaml|yml)$
+      
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+        exclude: ^agents/.+\.(md|yaml|yml)$
+      
+      # Check for large files
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      
+      # Check YAML syntax
+      - id: check-yaml
+        files: \.(yaml|yml)$
+      
+      # Check JSON syntax
+      - id: check-json
+        files: \.json$
+      
+      # Check for merge conflicts
+      - id: check-merge-conflict
+      
+      # Check for debug statements
+      - id: debug-statements
+        files: ^agents/.+\.py$
+      
+      # Check for private key files
+      - id: detect-private-key
+      
+      # Check Python AST
+      - id: check-ast
+        files: ^agents/.+\.py$
+
+  # YAML formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types: [yaml]
+        exclude: ^agents/.+/k8s/.+\.yaml$  # Skip k8s manifests
+
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: [--ignore, DL3008, --ignore, DL3009]
+        files: ^agents/.+/docker/Dockerfile.*$
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+        files: ^(agents/.+/scripts/.+\.(sh|bash)|tools/scripts/.+\.(sh|bash))$
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        args: [--config, .markdownlint.json]
+        files: ^agents/.+\.md$
+
+  # Python type checking (optional - can be slow)
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.8.0
+  #   hooks:
+  #     - id: mypy
+  #       files: ^agents/.+\.py$
+  #       additional_dependencies: [types-requests, types-PyYAML]
+
+# Global configuration
+default_language_version:
+  python: python3
+
+# Skip certain hooks for specific file types
+exclude: |
+  (?x)^(
+    agents/.+/__pycache__/.*|
+    agents/.+/\.venv/.*|
+    agents/.+/\.pytest_cache/.*|
+    agents/.+/htmlcov/.*|
+    agents/.+/\.coverage.*|
+    \.git/.*
+  )$
+
+# Fail fast - stop on first failure
+fail_fast: false
+
+# Minimum pre-commit version
+minimum_pre_commit_version: 3.0.0
