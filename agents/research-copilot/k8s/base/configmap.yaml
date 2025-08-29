@@ -4,11 +4,10 @@ metadata:
   name: research-copilot-config
   namespace: research-copilot
   labels:
-    app: research-copilot
     component: config
 data:
   # LLM Configuration
-  LLM_URL: "http://ollama-service:11434"
+  LLM_URL: "http://ollama-service.ollama.svc.cluster.local:11434"
   LLM_MODEL: "qwen2.5:7b"
   
   # Application Configuration
@@ -35,8 +34,8 @@ data:
   HEALTH_CHECK_PORT: "8081"
   PROMETHEUS_ENABLED: "true"
   
-  # Performance Configuration
-  ASYNC_POOL_SIZE: "10"
+  # Performance Configuration (optimized for Raspberry Pi 5)
+  ASYNC_POOL_SIZE: "5"
   REQUEST_TIMEOUT: "300"
   RETRY_ATTEMPTS: "3"
   RETRY_DELAY: "5"
@@ -44,4 +43,4 @@ data:
   # Cache Configuration
   ENABLE_CACHING: "true"
   CACHE_TTL: "3600"
-  CACHE_MAX_SIZE: "1000"
+  CACHE_MAX_SIZE: "500"

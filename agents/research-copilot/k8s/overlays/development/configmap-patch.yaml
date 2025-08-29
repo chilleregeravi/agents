@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: research-copilot-config
+  namespace: research-copilot
+data:
+  # Development-specific overrides
+  LLM_URL: "http://ollama-service.ollama.svc.cluster.local:11434"
+  LOG_LEVEL: "DEBUG"
+  ENVIRONMENT: "development"
+  PROMETHEUS_ENABLED: "false"
+  ENABLE_CACHING: "false"
+  ASYNC_POOL_SIZE: "3"
+  CACHE_MAX_SIZE: "100"
+  REQUEST_TIMEOUT: "60"

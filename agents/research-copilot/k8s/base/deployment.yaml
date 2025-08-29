@@ -4,25 +4,26 @@ metadata:
   name: research-copilot
   namespace: research-copilot
   labels:
-    app: research-copilot
     component: agent
-    version: v1.0.0
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
-      app: research-copilot
       component: agent
   template:
     metadata:
       labels:
-        app: research-copilot
         component: agent
-        version: v1.0.0
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
+        config.kubernetes.io/depends-on: "v1/ConfigMap/research-copilot-config,v1/Secret/api-credentials"
     spec:
       serviceAccountName: research-copilot
       securityContext:
@@ -30,9 +31,11 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: research-agent
-        image: localhost:5000/research-copilot:latest
+        image: research-copilot
         imagePullPolicy: Always
         ports:
         - name: metrics
@@ -74,6 +77,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         # API Credentials from Secrets
         - name: NOTION_TOKEN
           valueFrom:
@@ -109,66 +120,47 @@ spec:
             name: research-copilot-config
         resources:
           requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
             memory: "1Gi"
             cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "1000m"
         livenessProbe:
-          exec:
-            command:
-            - python
-            - -c
-            - |
-              import asyncio
-              import os
-              import sys
-              sys.path.append('/app')
-              from src.agent.main import ResearchCopilotAgent
-              
-              async def health_check():
-                  agent = ResearchCopilotAgent()
-                  configs = await agent.list_available_configurations()
-                  return len(configs) > 0
-              
-              try:
-                  result = asyncio.run(health_check())
-                  exit(0 if result else 1)
-              except Exception:
-                  exit(1)
+          httpGet:
+            path: /health
+            port: health
+            scheme: HTTP
           initialDelaySeconds: 60
           periodSeconds: 30
-          timeoutSeconds: 15
-          failureThreshold: 3
-        readinessProbe:
-          exec:
-            command:
-            - python
-            - -c
-            - |
-              import asyncio
-              import os
-              import sys
-              sys.path.append('/app')
-              from src.agent.main import ResearchCopilotAgent
-              
-              async def ready_check():
-                  agent = ResearchCopilotAgent()
-                  configs = await agent.list_available_configurations()
-                  return len(configs) > 0
-              
-              try:
-                  result = asyncio.run(ready_check())
-                  exit(0 if result else 1)
-              except Exception:
-                  exit(1)
-          initialDelaySeconds: 30
-          periodSeconds: 10
           timeoutSeconds: 10
           failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /health
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
           capabilities:
             drop:
             - ALL
@@ -176,16 +168,34 @@ spec:
         - name: config-templates
           mountPath: /app/config/templates
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /app/cache
       volumes:
       - name: config-templates
         projected:
           sources:
           - configMap:
               name: tech-research-template
+              optional: true
           - configMap:
               name: market-research-template
+              optional: true
           - configMap:
               name: llm-research-template
+              optional: true
+      - name: tmp
+        emptyDir:
+          sizeLimit: 100Mi
+      - name: cache
+        emptyDir:
+          sizeLimit: 500Mi
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0

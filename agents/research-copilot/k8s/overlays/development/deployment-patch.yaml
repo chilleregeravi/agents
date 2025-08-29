@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-copilot
+  namespace: research-copilot
+spec:
+  template:
+    spec:
+      containers:
+      - name: research-agent
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        livenessProbe:
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          initialDelaySeconds: 15
+          periodSeconds: 5
+        startupProbe:
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 20

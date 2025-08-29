@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# LLM Release Radar Agent Deployment Script
-# Deploys the agent to Kubernetes cluster on Raspberry Pi 5
+# Research Copilot Deployment Script
+# Automated deployment with environment validation and setup
 
 set -euo pipefail
 
 # Configuration
-AGENT_NAME="llm-release-radar"
-NAMESPACE="agents"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+AGENT_NAME="research-copilot"
 REGISTRY="localhost:5000"
-IMAGE_TAG="${1:-latest}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -35,345 +35,249 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Usage information
+usage() {
+    cat << EOF
+Research Copilot Deployment Script
+
+Usage: $0 [OPTIONS] ENVIRONMENT
+
+ENVIRONMENT:
+    development     Deploy to development environment
+    staging         Deploy to staging environment
+    production      Deploy to production environment
+
+OPTIONS:
+    -h, --help      Show this help message
+    -v, --validate  Only validate configuration, don't deploy
+    -b, --build     Force rebuild of Docker image
+    -s, --secrets   Recreate secrets
+    --dry-run       Show what would be deployed without applying
+    --skip-checks   Skip prerequisite checks
+
+Examples:
+    $0 production                    # Deploy to production
+    $0 development --build           # Build and deploy to development
+    $0 staging --validate            # Validate staging configuration
+    $0 production --dry-run          # Show production deployment plan
+
+Environment Variables:
+    NOTION_TOKEN                     # Required: Notion integration token
+    NOTION_DATABASE_ID               # Required: Notion database ID
+    SERPAPI_KEY                      # Optional: SerpAPI key
+    BING_API_KEY                     # Optional: Bing Search API key
+    BING_ENDPOINT                    # Optional: Bing Search endpoint
+
+EOF
+}
+
 # Check prerequisites
 check_prerequisites() {
     log_info "Checking prerequisites..."
 
-    # Check if kubectl is available
-    if ! command -v kubectl &> /dev/null; then
-        log_error "kubectl is not installed or not in PATH"
-        exit 1
-    fi
+    local errors=0
 
-    # Check if docker is available
-    if ! command -v docker &> /dev/null; then
-        log_error "docker is not installed or not in PATH"
-        exit 1
-    fi
+    # Check required commands
+    for cmd in kubectl kustomize docker make; do
+        if ! command -v "$cmd" &> /dev/null; then
+            log_error "$cmd is not installed or not in PATH"
+            ((errors++))
+        fi
+    done
 
-    # Check if we can connect to Kubernetes
+    # Check kubectl connectivity
     if ! kubectl cluster-info &> /dev/null; then
-        log_error "Cannot connect to Kubernetes cluster"
-        exit 1
+        log_error "kubectl cannot connect to Kubernetes cluster"
+        ((errors++))
     fi
 
-    # Check if local registry is running
-    if ! curl -s http://localhost:5000/v2/ &> /dev/null; then
-        log_warning "Local Docker registry is not running on localhost:5000"
-        log_info "Starting local registry..."
-        docker run -d -p 5000:5000 --name registry --restart=always registry:2 || {
-            log_error "Failed to start local registry"
-            exit 1
-        }
-        sleep 5
+    # Check Docker registry
+    if ! curl -s -X GET "http://${REGISTRY}/v2/_catalog" &> /dev/null; then
+        log_warning "Docker registry at ${REGISTRY} is not accessible"
+        log_warning "Make sure your local registry is running"
+    fi
+
+    # Check required environment variables
+    if [[ -z "${NOTION_TOKEN:-}" ]]; then
+        log_error "NOTION_TOKEN environment variable is required"
+        ((errors++))
+    fi
+
+    if [[ -z "${NOTION_DATABASE_ID:-}" ]]; then
+        log_error "NOTION_DATABASE_ID environment variable is required"
+        ((errors++))
+    fi
+
+    if [[ $errors -gt 0 ]]; then
+        log_error "Prerequisites check failed with $errors errors"
+        exit 1
     fi
 
     log_success "Prerequisites check passed"
 }
 
-# Build Docker image
-build_image() {
-    log_info "Building Docker image..."
+# Validate Kustomize configuration
+validate_config() {
+    local env=$1
+    log_info "Validating Kustomize configuration for $env environment..."
 
-    cd "$(dirname "$0")/.."
+    cd "$PROJECT_DIR"
 
-    # Build the image
-    docker build -f docker/Dockerfile -t "${AGENT_NAME}:${IMAGE_TAG}" . || {
-        log_error "Failed to build Docker image"
-        exit 1
-    }
-
-    # Tag for registry
-    docker tag "${AGENT_NAME}:${IMAGE_TAG}" "${REGISTRY}/${AGENT_NAME}:${IMAGE_TAG}"
-
-    log_success "Docker image built successfully"
-}
-
-# Push image to registry
-push_image() {
-    log_info "Pushing image to registry..."
-
-    docker push "${REGISTRY}/${AGENT_NAME}:${IMAGE_TAG}" || {
-        log_error "Failed to push image to registry"
-        exit 1
-    }
-
-    log_success "Image pushed to registry"
-}
-
-# Create namespace
-create_namespace() {
-    log_info "Creating namespace..."
-
-    kubectl apply -f k8s/namespace.yaml || {
-        log_error "Failed to create namespace"
-        exit 1
-    }
-
-    log_success "Namespace created/updated"
-}
-
-# Deploy secrets
-deploy_secrets() {
-    log_info "Deploying secrets..."
-
-    # Check if secrets file exists and has been configured
-    if [[ ! -f "k8s/secrets.yaml" ]]; then
-        log_error "secrets.yaml not found"
+    if ! make validate-kustomize; then
+        log_error "Kustomize validation failed"
         exit 1
     fi
 
-    # Warning about default values
-    if grep -q "your_notion_integration_token_here" k8s/secrets.yaml; then
-        log_warning "Secrets file contains default values!"
-        log_warning "Please update k8s/secrets.yaml with actual API keys before deployment"
-        read -p "Continue anyway? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            log_info "Deployment cancelled"
-            exit 0
-        fi
-    fi
-
-    kubectl apply -f k8s/secrets.yaml || {
-        log_error "Failed to deploy secrets"
-        exit 1
-    }
-
-    log_success "Secrets deployed"
+    log_success "Configuration validation passed"
 }
 
-# Deploy configuration
-deploy_config() {
-    log_info "Deploying configuration..."
 
-    kubectl apply -f k8s/configmap.yaml || {
-        log_error "Failed to deploy configuration"
-        exit 1
-    }
-
-    log_success "Configuration deployed"
-}
-
-# Deploy RBAC
-deploy_rbac() {
-    log_info "Deploying RBAC..."
-
-    kubectl apply -f k8s/service-account.yaml || {
-        log_error "Failed to deploy RBAC"
-        exit 1
-    }
-
-    log_success "RBAC deployed"
-}
-
-# Deploy application
-deploy_app() {
-    log_info "Deploying application..."
-
-    # Update image tag in deployment if not latest
-    if [[ "${IMAGE_TAG}" != "latest" ]]; then
-        sed -i.bak "s|localhost:5000/${AGENT_NAME}:latest|localhost:5000/${AGENT_NAME}:${IMAGE_TAG}|g" k8s/deployment.yaml
-        sed -i.bak "s|localhost:5000/${AGENT_NAME}:latest|localhost:5000/${AGENT_NAME}:${IMAGE_TAG}|g" k8s/cronjob.yaml
-    fi
-
-    # Deploy service
-    kubectl apply -f k8s/service.yaml || {
-        log_error "Failed to deploy service"
-        exit 1
-    }
-
-    # Deploy main application
-    kubectl apply -f k8s/deployment.yaml || {
-        log_error "Failed to deploy application"
-        exit 1
-    }
-
-    # Deploy cronjob
-    kubectl apply -f k8s/cronjob.yaml || {
-        log_error "Failed to deploy cronjob"
-        exit 1
-    }
-
-    # Restore original files if we modified them
-    if [[ "${IMAGE_TAG}" != "latest" ]]; then
-        mv k8s/deployment.yaml.bak k8s/deployment.yaml 2>/dev/null || true
-        mv k8s/cronjob.yaml.bak k8s/cronjob.yaml 2>/dev/null || true
-    fi
-
-    log_success "Application deployed"
-}
-
-# Wait for deployment
-wait_for_deployment() {
-    log_info "Waiting for deployment to be ready..."
-
-    kubectl wait --for=condition=available --timeout=300s deployment/${AGENT_NAME} -n ${NAMESPACE} || {
-        log_error "Deployment did not become ready in time"
-        log_info "Checking pod status..."
-        kubectl get pods -n ${NAMESPACE} -l app=${AGENT_NAME}
-        log_info "Checking pod logs..."
-        kubectl logs -n ${NAMESPACE} -l app=${AGENT_NAME} --tail=20
-        exit 1
-    }
-
-    log_success "Deployment is ready"
-}
 
 # Show deployment status
 show_status() {
-    log_info "Deployment status:"
+    log_info "Checking deployment status..."
 
-    echo
-    echo "Namespace:"
-    kubectl get namespace ${NAMESPACE}
+    cd "$PROJECT_DIR"
 
-    echo
-    echo "Pods:"
-    kubectl get pods -n ${NAMESPACE} -l app=${AGENT_NAME}
+    echo "Deployment Status:"
+    make status
 
-    echo
-    echo "Services:"
-    kubectl get services -n ${NAMESPACE} -l app=${AGENT_NAME}
-
-    echo
-    echo "CronJobs:"
-    kubectl get cronjobs -n ${NAMESPACE} -l app=${AGENT_NAME}
-
-    echo
-    echo "ConfigMaps:"
-    kubectl get configmaps -n ${NAMESPACE} -l app=${AGENT_NAME}
-
-    echo
-    echo "Secrets:"
-    kubectl get secrets -n ${NAMESPACE} -l app=${AGENT_NAME}
+    echo -e "\nRecent Events:"
+    make events | tail -10
 }
 
-# Health check
-health_check() {
-    log_info "Performing health check..."
+# Dry run deployment
+dry_run() {
+    local env=$1
+    log_info "Showing deployment plan for $env environment..."
 
-    # Get pod name
-    POD_NAME=$(kubectl get pods -n ${NAMESPACE} -l app=${AGENT_NAME} -o jsonpath='{.items[0].metadata.name}')
+    cd "$PROJECT_DIR"
 
-    if [[ -z "${POD_NAME}" ]]; then
-        log_error "No pods found for ${AGENT_NAME}"
-        return 1
-    fi
-
-    # Execute health check
-    kubectl exec -n ${NAMESPACE} "${POD_NAME}" -- python -m src.agent.main --health-check || {
-        log_error "Health check failed"
-        return 1
-    }
-
-    log_success "Health check passed"
-}
-
-# Manual test run
-test_run() {
-    log_info "Running manual test..."
-
-    # Create a test job
-    cat <<EOF | kubectl apply -f -
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: ${AGENT_NAME}-test-$(date +%s)
-  namespace: ${NAMESPACE}
-  labels:
-    app: ${AGENT_NAME}
-    job-type: test
-spec:
-  template:
-    metadata:
-      labels:
-        app: ${AGENT_NAME}
-        job-type: test
-    spec:
-      serviceAccountName: ${AGENT_NAME}
-      containers:
-      - name: test-runner
-        image: ${REGISTRY}/${AGENT_NAME}:${IMAGE_TAG}
-        command: ["python", "-m", "src.agent.main", "--log-level", "DEBUG"]
-        envFrom:
-        - configMapRef:
-            name: ${AGENT_NAME}-config
-        - secretRef:
-            name: ${AGENT_NAME}-secrets
-      restartPolicy: Never
-  backoffLimit: 1
-EOF
-
-    log_success "Test job created. Monitor with: kubectl logs -n ${NAMESPACE} -l job-type=test -f"
-}
-
-# Cleanup function
-cleanup() {
-    log_info "Cleaning up deployment..."
-
-    kubectl delete -f k8s/ -n ${NAMESPACE} --ignore-not-found=true
-
-    log_success "Cleanup completed"
+    ENVIRONMENT=$env make dry-run
 }
 
 # Main deployment function
 main() {
-    log_info "Starting deployment of ${AGENT_NAME} with image tag: ${IMAGE_TAG}"
+    local environment=""
+    local validate_only=false
+    local force_build=false
+    local recreate_secrets=false
+    local dry_run_only=false
+    local skip_checks=false
 
-    case "${1:-deploy}" in
-        "deploy")
-            check_prerequisites
-            build_image
-            push_image
-            create_namespace
-            deploy_secrets
-            deploy_config
-            deploy_rbac
-            deploy_app
-            wait_for_deployment
-            show_status
-            health_check
-            log_success "Deployment completed successfully!"
-            ;;
-        "build")
-            check_prerequisites
-            build_image
-            push_image
-            ;;
-        "status")
-            show_status
-            ;;
-        "health")
-            health_check
-            ;;
-        "test")
-            test_run
-            ;;
-        "cleanup")
-            cleanup
-            ;;
-        "help"|"-h"|"--help")
-            echo "Usage: $0 [deploy|build|status|health|test|cleanup] [image-tag]"
-            echo
-            echo "Commands:"
-            echo "  deploy   - Full deployment (default)"
-            echo "  build    - Build and push image only"
-            echo "  status   - Show deployment status"
-            echo "  health   - Run health check"
-            echo "  test     - Run manual test"
-            echo "  cleanup  - Remove deployment"
-            echo
-            echo "Arguments:"
-            echo "  image-tag - Docker image tag (default: latest)"
-            ;;
-        *)
-            log_error "Unknown command: $1"
-            echo "Use '$0 help' for usage information"
-            exit 1
-            ;;
-    esac
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -v|--validate)
+                validate_only=true
+                shift
+                ;;
+            -b|--build)
+                force_build=true
+                shift
+                ;;
+            -s|--secrets)
+                recreate_secrets=true
+                shift
+                ;;
+            --dry-run)
+                dry_run_only=true
+                shift
+                ;;
+            --skip-checks)
+                skip_checks=true
+                shift
+                ;;
+            development|staging|production)
+                environment=$1
+                shift
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+        esac
+    done
+
+    # Validate environment parameter
+    if [[ -z "$environment" ]]; then
+        log_error "Environment parameter is required"
+        usage
+        exit 1
+    fi
+
+    if [[ ! "$environment" =~ ^(development|staging|production)$ ]]; then
+        log_error "Invalid environment: $environment"
+        usage
+        exit 1
+    fi
+
+    log_info "Starting deployment process for $environment environment"
+
+    # Skip checks if requested
+    if [[ "$skip_checks" != true ]]; then
+        check_prerequisites
+    fi
+
+    # Validate configuration
+    validate_config "$environment"
+
+    # Handle dry run
+    if [[ "$dry_run_only" == true ]]; then
+        dry_run "$environment"
+        exit 0
+    fi
+
+    # Handle validate only
+    if [[ "$validate_only" == true ]]; then
+        log_success "Validation completed successfully"
+        exit 0
+    fi
+
+    # Build image if requested or if it doesn't exist
+    if [[ "$force_build" == true ]] || ! docker images | grep -q "$AGENT_NAME"; then
+        log_info "Building and pushing Docker image..."
+        cd "$PROJECT_DIR"
+        make build push
+    fi
+
+    # Manage secrets if requested or if they don't exist
+    if [[ "$recreate_secrets" == true ]] || ! kubectl get secret api-credentials -n research-copilot &> /dev/null; then
+        log_info "Managing secrets..."
+        cd "$PROJECT_DIR"
+        make create-secrets
+    fi
+
+    # Deploy to Kubernetes using Makefile
+    log_info "Deploying to $environment environment..."
+    cd "$PROJECT_DIR"
+    make "deploy-${environment}"
+
+    # Show deployment status
+    show_status
+
+    log_success "Deployment process completed successfully!"
+
+    # Provide useful next steps
+    echo -e "\n${BLUE}Next Steps:${NC}"
+    echo "  • Monitor logs: make logs"
+    echo "  • Check health: make health"
+    echo "  • View metrics: make metrics"
+    echo "  • Port forward: make port-forward"
+    echo "  • Scale deployment: make scale REPLICAS=N"
+
+    if [[ "$environment" == "production" ]]; then
+        echo "  • Backup config: make backup-config"
+    fi
 }
 
-# Run main function with all arguments
+# Handle script interruption
+trap 'log_error "Deployment interrupted"; exit 1' INT TERM
+
+# Run main function
 main "$@"

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: research-copilot-config
+  namespace: research-copilot
+data:
+  # Staging-specific overrides
+  LOG_LEVEL: "INFO"
+  ENVIRONMENT: "staging"
+  PROMETHEUS_ENABLED: "true"
+  ENABLE_CACHING: "true"
+  ASYNC_POOL_SIZE: "5"
+  CACHE_MAX_SIZE: "300"
+  REQUEST_TIMEOUT: "180"
