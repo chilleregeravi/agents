@@ -65,7 +65,7 @@ class ScrapingSettings(BaseSettings):
     """Web scraping configuration."""
 
     user_agent: str = Field(
-        default="LLMReleaseRadar/1.0 (+https://github.com/your-username/agents)",
+        default="ResearchCopilot/1.0 (+https://github.com/your-username/agents)",
         env="USER_AGENT",
     )
     request_timeout: int = Field(
@@ -115,7 +115,7 @@ class KubernetesSettings(BaseSettings):
         default="agents", description="Environment variable: K8S_NAMESPACE"
     )
     service_account: str = Field(
-        default="llm-release-radar",
+        default="research-copilot",
         description="Environment variable: K8S_SERVICE_ACCOUNT",
     )
 
@@ -134,26 +134,17 @@ class CacheSettings(BaseSettings):
 class SourceConfig(BaseSettings):
     """Source monitoring configuration."""
 
-    enable_github_monitoring: bool = Field(
+    enable_web_monitoring: bool = Field(
         default=True,
-        description="Environment variable: ENABLE_GITHUB_MONITORING",
+        description="Environment variable: ENABLE_WEB_MONITORING",
     )
-    enable_google_monitoring: bool = Field(
+    enable_academic_monitoring: bool = Field(
         default=True,
-        description="Environment variable: ENABLE_GOOGLE_MONITORING",
+        description="Environment variable: ENABLE_ACADEMIC_MONITORING",
     )
-    enable_microsoft_monitoring: bool = Field(
-        default=True, env="ENABLE_MICROSOFT_MONITORING"
-    )
-    enable_openai_monitoring: bool = Field(
+    enable_news_monitoring: bool = Field(
         default=True,
-        description="Environment variable: ENABLE_OPENAI_MONITORING",
-    )
-    enable_anthropic_monitoring: bool = Field(
-        default=True, env="ENABLE_ANTHROPIC_MONITORING"
-    )
-    enable_huggingface_monitoring: bool = Field(
-        default=True, env="ENABLE_HUGGINGFACE_MONITORING"
+        description="Environment variable: ENABLE_NEWS_MONITORING",
     )
 
 

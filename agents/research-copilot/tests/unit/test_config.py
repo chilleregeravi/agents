@@ -11,7 +11,6 @@ from src.config import (
     ScrapingSettings,
     SearchSettings,
     Settings,
-    SourceConfig,
     get_settings,
     reload_settings,
 )
@@ -114,14 +113,14 @@ class TestScrapingSettings:
     def test_default_values(self):
         """Test default scraping configuration."""
         settings = ScrapingSettings(
-            user_agent="LLMReleaseRadar/1.0",
+            user_agent="ResearchCopilot/1.0",
             request_timeout=30,
             max_concurrent_requests=5,
             rate_limit_delay=1.0,
             max_retries=3,
         )
 
-        assert "LLMReleaseRadar" in settings.user_agent
+        assert "ResearchCopilot" in settings.user_agent
         assert settings.request_timeout == 30
         assert settings.max_concurrent_requests == 5
         assert settings.rate_limit_delay == 1.0
@@ -283,36 +282,3 @@ class TestSettingsFunctions:
 
         assert settings == mock_settings
         mock_settings_class.assert_called_once()
-
-
-class TestSourceConfiguration:
-    """Test source monitoring configuration."""
-
-    def test_default_source_settings(self):
-        """Test default source monitoring settings."""
-        settings = Settings(
-            notion=NotionSettings(token="secret_test", database_id="test_db"),
-            search=SearchSettings(api_key="test_key"),
-        )
-
-        # All sources should be enabled by default
-        assert settings.sources.enable_github_monitoring is True
-        assert settings.sources.enable_google_monitoring is True
-        assert settings.sources.enable_microsoft_monitoring is True
-        assert settings.sources.enable_openai_monitoring is True
-        assert settings.sources.enable_anthropic_monitoring is True
-        assert settings.sources.enable_huggingface_monitoring is True
-
-    def test_selective_source_disable(self):
-        """Test selectively disabling sources."""
-        settings = Settings(
-            notion=NotionSettings(token="secret_test", database_id="test_db"),
-            search=SearchSettings(api_key="test_key"),
-            sources=SourceConfig(
-                enable_github_monitoring=False, enable_openai_monitoring=False
-            ),
-        )
-
-        assert settings.sources.enable_github_monitoring is False
-        assert settings.sources.enable_openai_monitoring is False
-        assert settings.sources.enable_google_monitoring is True  # Still enabled

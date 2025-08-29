@@ -2,8 +2,8 @@
 
 from .content_analyzer import ContentAnalysisError, ContentAnalyzer
 from .llm_client import (
-    LLMAnalysisError,
     LLMConnectionError,
+    LLMGenerationError,
     QwenLLMClient,
     get_llm_client,
 )
@@ -14,7 +14,7 @@ __all__ = [
     "QwenLLMClient",
     "get_llm_client",
     "LLMConnectionError",
-    "LLMAnalysisError",
+    "LLMGenerationError",
     "LLMResearcher",
     "ResearchError",
     "NotionClient",

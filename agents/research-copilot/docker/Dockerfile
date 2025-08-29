@@ -69,8 +69,8 @@ USER agent
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD python -c "import asyncio; from src.agent.main import LLMReleaseRadarAgent; \
-                   agent = LLMReleaseRadarAgent(); \
+    CMD python -c "import asyncio; from src.agent.main import ResearchCopilotAgent; \
+agent = ResearchCopilotAgent(); \
                    result = asyncio.run(agent.health_check()); \
                    exit(0 if result['agent'] == 'healthy' else 1)"
 
