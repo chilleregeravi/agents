@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: research-scheduler
+  namespace: research-copilot
+spec:
+  # Production schedule - run weekly on Sundays at 6:00 AM UTC
+  schedule: "0 6 * * 0"
+  suspend: false
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tech-research-scheduler
+  namespace: research-copilot
+spec:
+  # Production schedule - run monthly on the 1st at 8:00 AM UTC
+  schedule: "0 8 1 * *"
+  suspend: false

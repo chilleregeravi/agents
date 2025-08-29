@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: research-copilot-config
+  namespace: research-copilot
+data:
+  # Production-specific overrides
+  LOG_LEVEL: "INFO"
+  ENVIRONMENT: "production"
+  PROMETHEUS_ENABLED: "true"
+  ENABLE_CACHING: "true"
+  ASYNC_POOL_SIZE: "5"
+  CACHE_MAX_SIZE: "500"
+  REQUEST_TIMEOUT: "300"
