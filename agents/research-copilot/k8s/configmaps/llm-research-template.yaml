@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-research-template
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: config
+    template-type: llm-specific
+data:
+  research_prompt.yaml: |
+    description: "LLM releases and AI developments research"
+    research_request:
+      topic:
+        name: "LLM Release Radar"
+        description: "Track latest LLM releases, features, and announcements"
+        keywords: ["LLM", "large language model", "AI", "GPT", "Claude", "Llama", "Qwen", "release"]
+        focus_areas: ["new releases", "feature updates", "performance improvements", "company announcements"]
+        time_range: "past_week"
+        depth: "detailed"
+        exclude_terms: ["advertisement", "promotional", "clickbait"]
+      search_strategy:
+        max_sources: 30
+        source_types: ["news", "blogs", "official_announcements", "research_papers"]
+        credibility_threshold: 0.7
+        max_search_depth: 3
+        parallel_searches: 8
+        enable_follow_up: true
+        language_preference: ["en"]
+      analysis_instructions: |
+        Analyze the collected information to identify:
+        1. New LLM releases and major updates
+        2. Performance benchmarks and capabilities
+        3. Company announcements from OpenAI, Anthropic, Google, Microsoft, Meta
+        4. Open source developments and community contributions
+        5. Technical innovations and architectural improvements
+        6. Industry partnerships and collaborations
+        7. Regulatory and ethical developments
+        
+        Focus on factual information with clear source attribution.
+        Highlight breakthrough capabilities and significant improvements.
+
+  output_schema.yaml: |
+    output_format: "notion_page"
+    template: "llm_report"
+    
+    page_structure:
+      title_template: "LLM Release Radar - Week of {date}"
+      tags: ["LLM", "AI", "releases", "weekly-report"]
+      sections:
+        - name: "Weekly Summary"
+          type: "text_block"
+          content_source: "summary"
+          order: 1
+          required: true
+          configuration:
+            max_length: 400
+            include_key_points: true
+            highlight_key_points: true
+        
+        - name: "Major Releases"
+          type: "toggle_blocks"
+          content_source: "releases"
+          order: 2
+          required: true
+          configuration:
+            group_by: "company"
+            include_confidence_scores: true
+        
+        - name: "Feature Updates"
+          type: "bullet_list"
+          content_source: "features"
+          order: 3
+          required: true
+          configuration:
+            max_items: 15
+            include_sources: true
+            prioritize_by_impact: true
+        
+        - name: "Company Announcements"
+          type: "table"
+          content_source: "announcements"
+          order: 4
+          required: true
+          configuration:
+            columns: ["Company", "Announcement", "Impact", "Date", "Source"]
+            sort_by: "date"
+        
+        - name: "Technical Innovations"
+          type: "toggle_blocks"
+          content_source: "innovations"
+          order: 5
+          required: false
+          configuration:
+            group_by: "category"
+            include_confidence_scores: true
+        
+        - name: "Performance Benchmarks"
+          type: "table"
+          content_source: "benchmarks"
+          order: 6
+          required: false
+          configuration:
+            columns: ["Model", "Benchmark", "Score", "Improvement", "Source"]
+            format_numbers: true
+            sort_by: "score"
+        
+        - name: "Open Source Developments"
+          type: "bullet_list"
+          content_source: "open_source"
+          order: 7
+          required: false
+          configuration:
+            max_items: 10
+            include_sources: true
+        
+        - name: "Industry Impact"
+          type: "text_block"
+          content_source: "impact_analysis"
+          order: 8
+          required: false
+          configuration:
+            include_key_points: true
+        
+        - name: "Sources and References"
+          type: "table"
+          content_source: "sources"
+          order: 9
+          required: true
+          configuration:
+            columns: ["Title", "URL", "Company/Source", "Date", "Credibility"]
+            sort_by: "credibility"
+    
+    content_processing:
+      summary_length: "detailed"
+      include_confidence_scores: true
+      group_similar_findings: true
+      extract_key_quotes: true
+      generate_insights: true
+      entity_extraction: true
+      trend_analysis: true

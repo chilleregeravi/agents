@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: research-copilot
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: service-account
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: research-copilot-role
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: rbac
+rules:
+# ConfigMap permissions for research configurations
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+# Secret permissions for API credentials
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+# Pod permissions for health checks and debugging
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+# Service permissions for service discovery
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list"]
+# Event permissions for logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: research-copilot-rolebinding
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: rbac
+subjects:
+- kind: ServiceAccount
+  name: research-copilot
+  namespace: research-copilot
+roleRef:
+  kind: Role
+  name: research-copilot-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ClusterRole for cross-namespace operations (if needed)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: research-copilot-cluster-role
+  labels:
+    app: research-copilot
+    component: rbac
+rules:
+# Node information for resource monitoring
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+# Namespace information
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: research-copilot-cluster-rolebinding
+  labels:
+    app: research-copilot
+    component: rbac
+subjects:
+- kind: ServiceAccount
+  name: research-copilot
+  namespace: research-copilot
+roleRef:
+  kind: ClusterRole
+  name: research-copilot-cluster-role
+  apiGroup: rbac.authorization.k8s.io

@@ -3,6 +3,7 @@
 ## Project Structure Guidelines
 
 ### Repository Organization
+
 ```
 agents/
 ├── shared/                     # Shared libraries and utilities

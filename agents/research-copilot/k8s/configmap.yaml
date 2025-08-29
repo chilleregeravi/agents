@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: research-copilot-config
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: config
+data:
+  # LLM Configuration
+  LLM_URL: "http://ollama-service:11434"
+  LLM_MODEL: "qwen2.5:7b"
+  
+  # Application Configuration
+  LOG_LEVEL: "INFO"
+  ENVIRONMENT: "production"
+  CONFIG_DIR: "/app/config/templates"
+  
+  # Search Configuration
+  SEARCH_TIMEOUT: "30"
+  MAX_CONCURRENT_SEARCHES: "5"
+  DEFAULT_CREDIBILITY_THRESHOLD: "0.7"
+  
+  # Content Analysis Configuration
+  ANALYSIS_BATCH_SIZE: "10"
+  MAX_ANALYSIS_RETRIES: "3"
+  CONTENT_EXTRACTION_TIMEOUT: "60"
+  
+  # Notion Configuration
+  NOTION_TIMEOUT: "30"
+  MAX_BLOCKS_PER_REQUEST: "100"
+  
+  # Monitoring Configuration
+  METRICS_PORT: "8080"
+  HEALTH_CHECK_PORT: "8081"
+  PROMETHEUS_ENABLED: "true"
+  
+  # Performance Configuration
+  ASYNC_POOL_SIZE: "10"
+  REQUEST_TIMEOUT: "300"
+  RETRY_ATTEMPTS: "3"
+  RETRY_DELAY: "5"
+  
+  # Cache Configuration
+  ENABLE_CACHING: "true"
+  CACHE_TTL: "3600"
+  CACHE_MAX_SIZE: "1000"
