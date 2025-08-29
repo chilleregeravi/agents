@@ -1,0 +1,293 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: research-scheduler
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: scheduler
+spec:
+  # Run weekly on Sundays at 6:00 AM UTC
+  schedule: "0 6 * * 0"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 3
+  successfulJobsHistoryLimit: 3
+  startingDeadlineSeconds: 3600
+  jobTemplate:
+    metadata:
+      labels:
+        app: research-copilot
+        component: job
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200  # 2 hours timeout
+      template:
+        metadata:
+          labels:
+            app: research-copilot
+            component: job
+        spec:
+          serviceAccountName: research-copilot
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+          - name: research-job
+            image: localhost:5000/research-copilot:latest
+            imagePullPolicy: Always
+            command:
+            - python
+            - -m
+            - src.agent.main
+            args:
+            - $(RESEARCH_CONFIG)
+            env:
+            # Default to LLM research template
+            - name: RESEARCH_CONFIG
+              value: "llm-research-template"
+            # LLM Configuration
+            - name: LLM_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: LLM_URL
+            - name: LLM_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: LLM_MODEL
+            # Application Configuration
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: LOG_LEVEL
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: ENVIRONMENT
+            - name: CONFIG_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: CONFIG_DIR
+            # Kubernetes Configuration
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # API Credentials
+            - name: NOTION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: notion-token
+            - name: NOTION_DATABASE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: notion-database-id
+            - name: SERPAPI_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: serpapi-key
+                  optional: true
+            - name: BING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: bing-api-key
+                  optional: true
+            - name: BING_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: bing-endpoint
+                  optional: true
+            # Additional environment variables
+            envFrom:
+            - configMapRef:
+                name: research-copilot-config
+            resources:
+              requests:
+                memory: "1Gi"
+                cpu: "500m"
+              limits:
+                memory: "2Gi"
+                cpu: "1000m"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: config-templates
+              mountPath: /app/config/templates
+              readOnly: true
+          volumes:
+          - name: config-templates
+            projected:
+              sources:
+              - configMap:
+                  name: tech-research-template
+              - configMap:
+                  name: market-research-template
+              - configMap:
+                  name: llm-research-template
+          restartPolicy: OnFailure
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst
+
+---
+# Additional CronJob for technology research (monthly)
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tech-research-scheduler
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: scheduler
+    research-type: technology
+spec:
+  # Run monthly on the 1st at 8:00 AM UTC
+  schedule: "0 8 1 * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 2
+  successfulJobsHistoryLimit: 2
+  startingDeadlineSeconds: 3600
+  jobTemplate:
+    metadata:
+      labels:
+        app: research-copilot
+        component: job
+        research-type: technology
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200
+      template:
+        metadata:
+          labels:
+            app: research-copilot
+            component: job
+            research-type: technology
+        spec:
+          serviceAccountName: research-copilot
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+          - name: tech-research-job
+            image: localhost:5000/research-copilot:latest
+            imagePullPolicy: Always
+            command:
+            - python
+            - -m
+            - src.agent.main
+            args:
+            - "tech-research-template"
+            env:
+            # LLM Configuration
+            - name: LLM_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: LLM_URL
+            - name: LLM_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: LLM_MODEL
+            # Application Configuration
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: LOG_LEVEL
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: ENVIRONMENT
+            - name: CONFIG_DIR
+              valueFrom:
+                configMapKeyRef:
+                  name: research-copilot-config
+                  key: CONFIG_DIR
+            # Kubernetes Configuration
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            # API Credentials
+            - name: NOTION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: notion-token
+            - name: NOTION_DATABASE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: notion-database-id
+            - name: SERPAPI_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: serpapi-key
+                  optional: true
+            - name: BING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: bing-api-key
+                  optional: true
+            - name: BING_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: api-credentials
+                  key: bing-endpoint
+                  optional: true
+            # Additional environment variables
+            envFrom:
+            - configMapRef:
+                name: research-copilot-config
+            resources:
+              requests:
+                memory: "1Gi"
+                cpu: "500m"
+              limits:
+                memory: "2Gi"
+                cpu: "1000m"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: config-templates
+              mountPath: /app/config/templates
+              readOnly: true
+          volumes:
+          - name: config-templates
+            projected:
+              sources:
+              - configMap:
+                  name: tech-research-template
+              - configMap:
+                  name: market-research-template
+              - configMap:
+                  name: llm-research-template
+          restartPolicy: OnFailure
+          terminationGracePeriodSeconds: 30
+          dnsPolicy: ClusterFirst

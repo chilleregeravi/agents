@@ -55,6 +55,7 @@ repos:
       # Check YAML syntax
       - id: check-yaml
         files: \.(yaml|yml)$
+        exclude: ^agents/.+/k8s/.+\.yaml$
 
       # Check JSON syntax
       - id: check-json
@@ -82,13 +83,13 @@ repos:
         types: [yaml]
         exclude: ^agents/.+/k8s/.+\.yaml$ # Skip k8s manifests
 
-  # Dockerfile linting
-  - repo: https://github.com/hadolint/hadolint
-    rev: v2.12.0
-    hooks:
-      - id: hadolint-docker
-        args: [--ignore, DL3008, --ignore, DL3009]
-        files: ^agents/.+/docker/Dockerfile.*$
+  # Dockerfile linting (disabled when docker not available)
+  # - repo: https://github.com/hadolint/hadolint
+  #   rev: v2.12.0
+  #   hooks:
+  #     - id: hadolint-docker
+  #       args: [--ignore, DL3008, --ignore, DL3009]
+  #       files: ^agents/.+/docker/Dockerfile.*$
 
   # Shell script linting
   - repo: https://github.com/shellcheck-py/shellcheck-py

@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-copilot
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: agent
+    version: v1.0.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: research-copilot
+      component: agent
+  template:
+    metadata:
+      labels:
+        app: research-copilot
+        component: agent
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: agent
+        image: localhost:5000/research-copilot:latest
+        imagePullPolicy: Always
+        ports:
+        - name: metrics
+          containerPort: 8080
+          protocol: TCP
+        - name: health
+          containerPort: 8081
+          protocol: TCP
+        env:
+        # Simple configuration via environment variables
+        - name: OLLAMA_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: research-copilot-config
+              key: OLLAMA_HOST
+        - name: OLLAMA_MODEL
+          valueFrom:
+            configMapKeyRef:
+              name: research-copilot-config
+              key: OLLAMA_MODEL
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: research-copilot-config
+              key: LOG_LEVEL
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: research-copilot-config
+              key: ENVIRONMENT
+        # Research configuration template selection
+        - name: RESEARCH_TEMPLATE
+          valueFrom:
+            configMapKeyRef:
+              name: research-copilot-config
+              key: RESEARCH_TEMPLATE
+              optional: true
+        # Secrets
+        - name: NOTION_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: research-copilot-secrets
+              key: NOTION_TOKEN
+        - name: NOTION_DATABASE_ID
+          valueFrom:
+            secretKeyRef:
+              name: research-copilot-secrets
+              key: NOTION_DATABASE_ID
+        - name: SEARCH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: research-copilot-secrets
+              key: SEARCH_API_KEY
+        volumeMounts:
+        # Mount research configuration templates as files
+        - name: tech-research-config
+          mountPath: /app/config/templates/tech-research
+          readOnly: true
+        - name: market-research-config
+          mountPath: /app/config/templates/market-research
+          readOnly: true
+        # Mount any custom research configurations
+        - name: custom-research-config
+          mountPath: /app/config/custom
+          readOnly: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: health
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      # Mount ConfigMaps as volumes
+      - name: tech-research-config
+        configMap:
+          name: tech-research-template
+          items:
+          - key: research_prompt.yaml
+            path: research_prompt.yaml
+          - key: output_schema.yaml
+            path: output_schema.yaml
+      - name: market-research-config
+        configMap:
+          name: market-research-template
+          items:
+          - key: research_prompt.yaml
+            path: research_prompt.yaml
+          - key: output_schema.yaml
+            path: output_schema.yaml
+      - name: custom-research-config
+        configMap:
+          name: custom-research-configs
+          optional: true
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst

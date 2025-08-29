@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: market-research-template
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: config
+    template-type: market
+data:
+  research_prompt.yaml: |
+    description: "Market analysis and competitive intelligence"
+    research_request:
+      topic:
+        name: "Market Research"
+        description: "Market analysis and competitive intelligence"
+        keywords: ["market size", "competition", "growth trends", "consumer behavior", "market share"]
+        focus_areas: ["market dynamics", "competitive analysis", "opportunities", "threats", "financial performance"]
+        time_range: "past_quarter"
+        depth: "comprehensive"
+        exclude_terms: ["spam", "advertisement"]
+      search_strategy:
+        max_sources: 25
+        source_types: ["reports", "news", "official_announcements", "research_papers"]
+        credibility_threshold: 0.8
+        max_search_depth: 4
+        parallel_searches: 6
+        enable_follow_up: true
+        language_preference: ["en"]
+      analysis_instructions: |
+        Conduct comprehensive market analysis focusing on:
+        1. Market size, growth, and segmentation
+        2. Competitive landscape and key players
+        3. Consumer trends and preferences
+        4. Market opportunities and threats
+        5. Financial performance and projections
+        6. Regulatory environment
+        7. Technology disruptions
+        8. Geographic variations
+        
+        Provide quantitative data where available and cite all sources.
+        Include actionable recommendations for stakeholders.
+
+  output_schema.yaml: |
+    output_format: "notion_page"
+    template: "market_report"
+    
+    page_structure:
+      title_template: "Market Research - {topic_name} - {date}"
+      tags: ["market", "research", "analysis", "competitive-intelligence"]
+      sections:
+        - name: "Market Overview"
+          type: "text_block"
+          content_source: "overview"
+          order: 1
+          required: true
+          configuration:
+            include_metrics: true
+            highlight_key_stats: true
+            include_key_points: true
+        
+        - name: "Market Metrics"
+          type: "table"
+          content_source: "metrics"
+          order: 2
+          required: true
+          configuration:
+            columns: ["Metric", "Value", "Change (%)", "Period", "Source"]
+            format_numbers: true
+            sort_by: "metric"
+        
+        - name: "Competitive Landscape"
+          type: "toggle_blocks"
+          content_source: "competitors"
+          order: 3
+          required: true
+          configuration:
+            group_by: "company"
+            include_market_share: true
+            include_confidence_scores: true
+        
+        - name: "Key Market Insights"
+          type: "bullet_list"
+          content_source: "insights"
+          order: 4
+          required: true
+          configuration:
+            max_items: 12
+            prioritize_by_impact: true
+            include_confidence_scores: true
+            include_sources: true
+        
+        - name: "Growth Opportunities"
+          type: "callout"
+          content_source: "opportunities"
+          order: 5
+          required: false
+          configuration:
+            highlight_key_points: true
+        
+        - name: "Market Threats and Challenges"
+          type: "toggle_blocks"
+          content_source: "threats"
+          order: 6
+          required: false
+          configuration:
+            group_by: "category"
+        
+        - name: "Financial Analysis"
+          type: "table"
+          content_source: "financial_data"
+          order: 7
+          required: false
+          configuration:
+            columns: ["Company", "Revenue", "Growth", "Market Share", "Valuation"]
+            format_numbers: true
+            sort_by: "revenue"
+        
+        - name: "Sources and References"
+          type: "table"
+          content_source: "sources"
+          order: 8
+          required: true
+          configuration:
+            columns: ["Title", "URL", "Credibility", "Date", "Type"]
+            sort_by: "credibility"
+    
+    content_processing:
+      summary_length: "detailed"
+      include_confidence_scores: true
+      group_similar_findings: true
+      extract_key_quotes: true
+      generate_insights: true
+      entity_extraction: true
+      trend_analysis: true
+      sentiment_analysis: true

@@ -1,0 +1,106 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tech-research-template
+  namespace: research-copilot
+  labels:
+    app: research-copilot
+    component: config
+    template-type: technology
+data:
+  research_prompt.yaml: |
+    description: "Comprehensive analysis of emerging technology trends"
+    research_request:
+      topic:
+        name: "Technology Research"
+        description: "Comprehensive analysis of emerging technology trends"
+        keywords: ["AI", "machine learning", "blockchain", "cloud computing", "automation"]
+        focus_areas: ["innovations", "market impact", "adoption trends", "competitive landscape"]
+        time_range: "past_month"
+        depth: "detailed"
+        exclude_terms: ["advertisement", "promotional"]
+      search_strategy:
+        max_sources: 20
+        source_types: ["news", "research_papers", "blogs", "official_announcements"]
+        credibility_threshold: 0.7
+        max_search_depth: 3
+        parallel_searches: 5
+        enable_follow_up: true
+        language_preference: ["en"]
+      analysis_instructions: |
+        Analyze the collected information to identify:
+        1. Key technological breakthroughs and innovations
+        2. Market trends and adoption patterns
+        3. Industry impact and future implications
+        4. Competitive landscape changes
+        5. Investment and funding patterns
+        6. Regulatory developments
+        
+        Provide detailed analysis with supporting evidence and credible sources.
+        Focus on actionable insights and emerging opportunities.
+
+  output_schema.yaml: |
+    output_format: "notion_page"
+    template: "research_report"
+    
+    page_structure:
+      title_template: "Technology Research Report - {topic_name} - {date}"
+      tags: ["technology", "research", "trends"]
+      sections:
+        - name: "Executive Summary"
+          type: "text_block"
+          content_source: "summary"
+          order: 1
+          required: true
+          configuration:
+            max_length: 500
+            include_key_points: true
+            highlight_key_points: true
+        
+        - name: "Key Findings"
+          type: "bullet_list"
+          content_source: "findings"
+          order: 2
+          required: true
+          configuration:
+            max_items: 10
+            include_sources: true
+            include_confidence_scores: true
+            prioritize_by_impact: true
+        
+        - name: "Technology Trends"
+          type: "toggle_blocks"
+          content_source: "analysis"
+          order: 3
+          required: true
+          configuration:
+            group_by: "category"
+            include_confidence_scores: true
+        
+        - name: "Market Impact Analysis"
+          type: "text_block"
+          content_source: "insights"
+          order: 4
+          required: false
+          configuration:
+            include_metrics: true
+            highlight_key_stats: true
+        
+        - name: "Sources and References"
+          type: "table"
+          content_source: "sources"
+          order: 5
+          required: true
+          configuration:
+            columns: ["Title", "URL", "Credibility", "Date", "Source Type"]
+            sort_by: "credibility"
+            format_numbers: false
+    
+    content_processing:
+      summary_length: "detailed"
+      include_confidence_scores: true
+      group_similar_findings: true
+      extract_key_quotes: true
+      generate_insights: true
+      entity_extraction: true
+      trend_analysis: true
