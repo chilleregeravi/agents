@@ -218,7 +218,11 @@ class ResearchCopilotAgent:
 
         # Test LLM connection
         try:
-            await self.llm_client.generate("Test connection", max_tokens=10)
+            health_status = await self.llm_client.health_check()
+            if health_status["status"] != "healthy":
+                raise AgentExecutionError(
+                    f"LLM client health check failed: {health_status.get('error', 'Unknown error')}"
+                )
             logger.info("LLM client initialized successfully")
         except Exception as e:
             raise AgentExecutionError(f"Failed to initialize LLM client: {e}")

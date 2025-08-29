@@ -1,27 +1,23 @@
-"""Data models for LLM Release Radar Agent."""
+"""Data models for Research Copilot Agent."""
 
-from .news import (
+from .research_config import (
     AnalysisRequest,
     AnalysisResult,
-    Company,
     ContentType,
-    FeatureAnnouncement,
     ImpactLevel,
-    LLMRelease,
-    ResearchPaper,
+    ResearchConfiguration,
+    ResearchRequest,
+    ResearchResult,
     SearchResult,
-    WeeklyReport,
 )
 
 __all__ = [
     "ImpactLevel",
-    "Company",
     "ContentType",
-    "LLMRelease",
-    "FeatureAnnouncement",
-    "ResearchPaper",
-    "WeeklyReport",
-    "SearchResult",
     "AnalysisRequest",
     "AnalysisResult",
+    "ResearchConfiguration",
+    "ResearchRequest",
+    "ResearchResult",
+    "SearchResult",
 ]

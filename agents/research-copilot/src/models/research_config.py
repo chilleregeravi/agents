@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, HttpUrl, validator
 
 
 class ResearchDepth(str, Enum):
@@ -329,6 +329,78 @@ class ResearchConfiguration(BaseModel):
         use_enum_values = True
         validate_assignment = True
         extra = "forbid"
+
+
+# Analysis-related enums and models (merged from news.py)
+class ImpactLevel(str, Enum):
+    """Impact level of research findings and announcements."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class ContentType(str, Enum):
+    """Type of content being analyzed."""
+
+    RELEASE = "release"
+    ANNOUNCEMENT = "announcement"
+    RESEARCH_PAPER = "research_paper"
+    BLOG_POST = "blog_post"
+    DOCUMENTATION = "documentation"
+    NEWS_ARTICLE = "news_article"
+    REPORT = "report"
+    WHITEPAPER = "whitepaper"
+    INTERVIEW = "interview"
+    PRESENTATION = "presentation"
+
+
+class AnalysisRequest(BaseModel):
+    """Model for content analysis requests."""
+
+    content: str = Field(..., description="Content to analyze")
+    content_type: ContentType = Field(..., description="Type of content")
+    source_url: Optional[HttpUrl] = Field(None, description="Source URL")
+    organization_hint: Optional[str] = Field(
+        None, description="Hint about which organization this relates to"
+    )
+    analysis_focus: List[str] = Field(
+        default_factory=list,
+        description="Specific aspects to focus analysis on",
+    )
+
+    class Config:
+        """Pydantic configuration."""
+
+        use_enum_values = True
+        json_encoders = {HttpUrl: str}
+
+
+class AnalysisResult(BaseModel):
+    """Model for content analysis results."""
+
+    content_type: ContentType
+    organization: Optional[str] = Field(None, description="Identified organization")
+    product: Optional[str] = Field(None, description="Identified product/service")
+    key_points: List[str] = Field(
+        default_factory=list, description="Key points extracted from content"
+    )
+    sentiment: str = Field("neutral", description="Overall sentiment")
+    impact_assessment: ImpactLevel = Field(
+        ImpactLevel.LOW, description="Assessed impact level"
+    )
+    structured_data: Optional[Dict[str, Any]] = Field(
+        None, description="Structured data extracted from content"
+    )
+    confidence_score: float = Field(
+        0.0, ge=0.0, le=1.0, description="Confidence in the analysis"
+    )
+
+    class Config:
+        """Pydantic configuration."""
+
+        use_enum_values = True
 
 
 class ResearchResult(BaseModel):

@@ -1,4 +1,4 @@
-"""Shared test configuration and fixtures for LLM Release Radar Agent."""
+"""Shared test configuration and fixtures for Research Copilot Agent."""
 
 import asyncio
 from typing import Any, Dict, Generator
@@ -20,11 +20,13 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 def mock_llm_client() -> AsyncMock:
     """Mock LLM client for testing."""
     client = AsyncMock()
-    client.query.return_value = {
-        "response": "Mocked LLM response",
+    client.generate.return_value = "Mocked LLM response"
+    client.generate_response.return_value = "Mocked LLM response"
+    client.health_check.return_value = {
+        "status": "healthy",
         "model": "qwen2:7b",
-        "created_at": "2024-01-01T00:00:00Z",
-        "done": True,
+        "response": "Mocked LLM response",
+        "timestamp": 1704067200.0,
     }
     return client
 
@@ -87,73 +89,6 @@ def sample_config() -> Dict[str, Any]:
 
 
 @pytest.fixture
-def sample_llm_news_data() -> Dict[str, Any]:
-    """Sample LLM news data for testing."""
-    return {
-        "week_of": "2024-01-15",
-        "major_releases": [
-            {
-                "company": "OpenAI",
-                "product": "GPT-4.5",
-                "release_date": "2024-01-12",
-                "key_features": [
-                    "Improved reasoning capabilities",
-                    "Better code generation",
-                    "Enhanced multimodal understanding",
-                ],
-                "impact_level": "high",
-                "source_links": [
-                    "https://openai.com/blog/gpt-4-5-release",
-                    "https://github.com/openai/gpt-4.5",
-                ],
-                "summary": "OpenAI releases GPT-4.5 with significant improvements",
-            },
-            {
-                "company": "Google",
-                "product": "Gemini Pro 2.0",
-                "release_date": "2024-01-14",
-                "key_features": [
-                    "Faster inference",
-                    "Lower cost",
-                    "Better factual accuracy",
-                ],
-                "impact_level": "high",
-                "source_links": [
-                    "https://blog.google/technology/ai/gemini-pro-2-announcement"
-                ],
-                "summary": "Google announces Gemini Pro 2.0 with performance improvements",
-            },
-        ],
-        "feature_announcements": [
-            {
-                "company": "Microsoft",
-                "product": "Azure OpenAI Service",
-                "announcement_date": "2024-01-13",
-                "features": [
-                    "New fine-tuning capabilities",
-                    "Enhanced safety filters",
-                ],
-                "impact_level": "medium",
-                "source_links": [
-                    "https://azure.microsoft.com/blog/azure-openai-updates"
-                ],
-            }
-        ],
-        "research_papers": [
-            {
-                "title": "Advances in Large Language Model Training",
-                "authors": ["Jane Doe", "John Smith"],
-                "publication": "arXiv",
-                "date": "2024-01-11",
-                "summary": "New techniques for efficient LLM training",
-                "link": "https://arxiv.org/abs/2024.01234",
-            }
-        ],
-        "summary": "This week saw major releases from OpenAI and Google, with significant improvements in model capabilities and performance.",
-    }
-
-
-@pytest.fixture
 def sample_web_content() -> str:
     """Sample web content for testing."""
     return """
@@ -207,9 +142,9 @@ def sample_search_results() -> Dict[str, Any]:
 @pytest.fixture
 async def agent_instance(mock_llm_client, mock_notion_client, sample_config):
     """Create agent instance for testing."""
-    from src.agent.main import LLMReleaseRadarAgent
+    from src.agent.main import ResearchCopilotAgent
 
-    agent = LLMReleaseRadarAgent(
+    agent = ResearchCopilotAgent(
         config=sample_config,
         llm_client=mock_llm_client,
         notion_client=mock_notion_client,
