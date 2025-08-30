@@ -1,0 +1,96 @@
+name: "Weather API Scraper"
+description: "Scrape weather data from OpenWeatherMap API"
+base_url: "https://api.openweathermap.org/data/2.5"
+authentication:
+  type: "api_key"
+  api_key_name: "appid"
+  api_key_value: "$OPENWEATHER_API_KEY" # Environment variable
+
+endpoints:
+  - name: "current_weather"
+    url: "/weather"
+    method: "GET"
+    params:
+      q: "London,UK"
+      units: "metric"
+    timeout: 30
+    retry_attempts: 3
+
+  - name: "forecast"
+    url: "/forecast"
+    method: "GET"
+    params:
+      q: "London,UK"
+      units: "metric"
+      cnt: 40
+    timeout: 30
+    retry_attempts: 3
+    data_path: "$.list"
+
+  - name: "air_pollution"
+    url: "/air_pollution"
+    method: "GET"
+    params:
+      lat: 51.5074
+      lon: -0.1278
+    timeout: 30
+    retry_attempts: 3
+    data_path: "$.list"
+
+rate_limit:
+  requests_per_minute: 60
+  requests_per_hour: 1000
+  delay_between_requests: 1.0
+
+data_format: "json"
+
+transformation:
+  field_mapping:
+    dt: "timestamp"
+    main.temp: "temperature"
+    main.feels_like: "feels_like"
+    main.humidity: "humidity"
+    main.pressure: "pressure"
+    weather.0.main: "weather_condition"
+    weather.0.description: "weather_description"
+    wind.speed: "wind_speed"
+    wind.deg: "wind_direction"
+    clouds.all: "cloud_coverage"
+    rain.1h: "rain_1h"
+    snow.1h: "snow_1h"
+
+  field_filters:
+    temperature:
+      type: "number"
+      min: -50
+      max: 60
+    humidity:
+      type: "number"
+      min: 0
+      max: 100
+    pressure:
+      type: "number"
+      min: 800
+      max: 1200
+    weather_description:
+      type: "string"
+      lowercase: true
+      strip: true
+
+  data_validation:
+    temperature:
+      required: true
+      type: "number"
+    humidity:
+      required: true
+      type: "number"
+    weather_condition:
+      required: true
+      type: "string"
+
+output_config:
+  format: "csv"
+  filename: "weather_data"
+
+schedule: "*/30 * * * *" # Every 30 minutes
+enabled: true

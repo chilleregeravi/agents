@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-scraper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-scraper
+  template:
+    metadata:
+      labels:
+        app: data-scraper
+    spec:
+      containers:
+      - name: data-scraper
+        image: data-scraper:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: VERBOSE
+          value: "false"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: output
+          mountPath: /app/output
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: config
+        configMap:
+          name: data-scraper-config
+      - name: output
+        persistentVolumeClaim:
+          claimName: data-scraper-output
+      - name: logs
+        emptyDir: {}
+
+

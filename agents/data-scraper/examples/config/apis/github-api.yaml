@@ -1,0 +1,95 @@
+name: "GitHub API Scraper"
+description: "Scrape data from GitHub API including repositories, users, and issues"
+base_url: "https://api.github.com"
+authentication:
+  type: "bearer_token"
+  bearer_token: "$GITHUB_TOKEN" # Environment variable
+
+endpoints:
+  - name: "user_info"
+    url: "/user"
+    method: "GET"
+    headers:
+      Accept: "application/vnd.github.v3+json"
+    timeout: 30
+    retry_attempts: 3
+
+  - name: "user_repos"
+    url: "/user/repos"
+    method: "GET"
+    headers:
+      Accept: "application/vnd.github.v3+json"
+    params:
+      per_page: 100
+      sort: "updated"
+    timeout: 30
+    retry_attempts: 3
+    data_path: "$.data"
+
+  - name: "trending_repos"
+    url: "/search/repositories"
+    method: "GET"
+    headers:
+      Accept: "application/vnd.github.v3+json"
+    params:
+      q: "stars:>1000 language:python"
+      sort: "stars"
+      order: "desc"
+      per_page: 50
+    timeout: 30
+    retry_attempts: 3
+    data_path: "$.items"
+
+rate_limit:
+  requests_per_minute: 30
+  requests_per_hour: 5000
+  delay_between_requests: 2.0
+
+data_format: "json"
+
+transformation:
+  field_mapping:
+    id: "repo_id"
+    name: "repository_name"
+    full_name: "full_repository_name"
+    description: "repo_description"
+    html_url: "repository_url"
+    stargazers_count: "stars"
+    forks_count: "forks"
+    language: "programming_language"
+    created_at: "created_date"
+    updated_at: "last_updated"
+    owner.login: "owner_username"
+    owner.avatar_url: "owner_avatar"
+
+  field_filters:
+    repository_name:
+      type: "string"
+      lowercase: true
+    repo_description:
+      type: "string"
+      strip: true
+    stars:
+      type: "number"
+      min: 0
+    forks:
+      type: "number"
+      min: 0
+
+  data_validation:
+    repository_name:
+      required: true
+      type: "string"
+      min_length: 1
+    stars:
+      required: true
+      type: "number"
+    programming_language:
+      type: "string"
+
+output_config:
+  format: "json"
+  filename: "github_data"
+
+schedule: "0 */6 * * *" # Every 6 hours
+enabled: true
