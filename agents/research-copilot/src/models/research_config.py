@@ -356,7 +356,7 @@ class ContentType(str, Enum):
     PRESENTATION = "presentation"
 
 
-class AnalysisRequest(BaseModel):
+class ContentAnalysisRequest(BaseModel):
     """Model for content analysis requests."""
 
     content: str = Field(..., description="Content to analyze")
@@ -377,7 +377,7 @@ class AnalysisRequest(BaseModel):
         json_encoders = {HttpUrl: str}
 
 
-class AnalysisResult(BaseModel):
+class ContentAnalysisResult(BaseModel):
     """Model for content analysis results."""
 
     content_type: ContentType
@@ -496,6 +496,283 @@ class AnalysisInsight(BaseModel):
             raise ValueError("Title and content cannot be empty")
         return v.strip()
 
+
+# New models for separated research workflow
+class ResearchPhase(str, Enum):
+    """Enumeration of research phases."""
+
+    GATHERING = "gathering"
+    ANALYSIS = "analysis"
+    SYNTHESIS = "synthesis"
+
+
+class ResearchData(BaseModel):
+    """Model for research data collected from external sources."""
+
+    topic_name: str = Field(..., description="Research topic name")
+    collected_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Collection timestamp"
+    )
+    data_sources: List[str] = Field(
+        default_factory=list, description="Sources of collected data"
+    )
+
+    # Raw content from various sources
+    web_pages: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Web page content"
+    )
+    documents: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Document content"
+    )
+    news_articles: List[Dict[str, Any]] = Field(
+        default_factory=list, description="News article content"
+    )
+    social_media: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Social media content"
+    )
+
+    # Metadata about the collection process
+    collection_method: str = Field(..., description="How the data was collected")
+    collection_notes: Optional[str] = Field(
+        None, description="Notes about the collection process"
+    )
+    total_content_length: int = Field(
+        default=0, description="Total content length in characters"
+    )
+
+    # Quality metrics
+    source_diversity: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Diversity of sources"
+    )
+    content_freshness: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Content freshness score"
+    )
+    relevance_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Overall relevance score"
+    )
+
+
+class AnalysisRequest(BaseModel):
+    """Model for requesting analysis of collected research data."""
+
+    research_data: ResearchData = Field(
+        ..., description="Collected research data to analyze"
+    )
+    analysis_config: ResearchConfiguration = Field(
+        ..., description="Analysis configuration"
+    )
+    analysis_focus: List[str] = Field(
+        default_factory=list, description="Specific focus areas for analysis"
+    )
+    output_requirements: Dict[str, Any] = Field(
+        default_factory=dict, description="Output format requirements"
+    )
+
+    # Analysis parameters
+    include_confidence_scores: bool = Field(
+        default=True, description="Include confidence scores in analysis"
+    )
+    include_source_citations: bool = Field(
+        default=True, description="Include source citations"
+    )
+    group_similar_findings: bool = Field(
+        default=True, description="Group similar findings together"
+    )
+    trend_analysis: bool = Field(default=False, description="Perform trend analysis")
+
+    # Content processing preferences
+    summary_length: SummaryLength = Field(
+        default=SummaryLength.MEDIUM, description="Desired summary length"
+    )
+    include_quantitative_data: bool = Field(
+        default=True, description="Include quantitative data analysis"
+    )
+    include_qualitative_insights: bool = Field(
+        default=True, description="Include qualitative insights"
+    )
+
+
+class AnalysisResult(BaseModel):
+    """Model for analysis results from local LLM processing."""
+
+    analysis_id: str = Field(..., description="Unique analysis identifier")
+    analysis_request: AnalysisRequest = Field(
+        ..., description="Original analysis request"
+    )
+    completed_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Analysis completion time"
+    )
+
+    # Analysis outputs
+    executive_summary: str = Field(..., description="Executive summary of findings")
+    key_insights: List[AnalysisInsight] = Field(
+        default_factory=list, description="Key insights generated"
+    )
+    trend_analysis: Optional[Dict[str, Any]] = Field(
+        None, description="Trend analysis results"
+    )
+    quantitative_findings: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Quantitative findings"
+    )
+
+    # Quality metrics
+    analysis_confidence: float = Field(
+        ..., ge=0.0, le=1.0, description="Overall analysis confidence"
+    )
+    coverage_score: float = Field(
+        ..., ge=0.0, le=1.0, description="Coverage of research topic"
+    )
+    insight_quality: float = Field(
+        ..., ge=0.0, le=1.0, description="Quality of generated insights"
+    )
+
+    # Metadata
+    processing_time_seconds: float = Field(..., description="Time taken for analysis")
+    llm_model_used: str = Field(..., description="LLM model used for analysis")
+    analysis_notes: Optional[str] = Field(
+        None, description="Notes about the analysis process"
+    )
+
+
+class ResearchWorkflow(BaseModel):
+    """Model for the complete research workflow configuration."""
+
+    workflow_id: str = Field(..., description="Unique workflow identifier")
+    name: str = Field(..., description="Workflow name")
+    description: str = Field(..., description="Workflow description")
+
+    # Phase configurations
+    gathering_phase: Dict[str, Any] = Field(
+        default_factory=dict, description="Data gathering configuration"
+    )
+    analysis_phase: AnalysisRequest = Field(
+        ..., description="Analysis phase configuration"
+    )
+    synthesis_phase: Dict[str, Any] = Field(
+        default_factory=dict, description="Synthesis phase configuration"
+    )
+
+    # Workflow metadata
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Workflow creation time"
+    )
+    last_modified: datetime = Field(
+        default_factory=datetime.utcnow, description="Last modification time"
+    )
+    version: str = Field(default="1.0", description="Workflow version")
+
+    # Execution settings
+    enable_parallel_processing: bool = Field(
+        default=False, description="Enable parallel processing"
+    )
+    max_execution_time_minutes: int = Field(
+        default=60, description="Maximum execution time"
+    )
+    retry_on_failure: bool = Field(default=True, description="Retry on failure")
+
+    class Config:
+        """Pydantic configuration."""
+
+        use_enum_values = True
+
+
+# Template for the new separated workflow
+SEPARATED_RESEARCH_WORKFLOW = ResearchWorkflow(
+    workflow_id="separated-research-v1",
+    name="Separated Research Workflow",
+    description="Research workflow that separates data gathering from analysis",
+    gathering_phase={
+        "enabled": True,
+        "methods": ["manual_input", "file_upload", "api_integration"],
+        "required_fields": ["topic_name", "data_sources", "content"],
+        "validation_rules": {
+            "min_sources": 3,
+            "min_content_length": 1000,
+            "max_content_length": 100000,
+        },
+    },
+    analysis_phase=AnalysisRequest(
+        research_data=ResearchData(
+            topic_name="Example Topic",
+            collection_method="manual_input",
+            data_sources=["example.com", "news.example.com"],
+        ),
+        analysis_config=ResearchConfiguration(
+            name="Example Research Configuration",
+            description="Example configuration for research data analysis",
+            research_request=ResearchRequest(
+                topic=ResearchTopic(
+                    name="Example Research Topic",
+                    description="Example research topic for testing",
+                    keywords=["example", "test"],
+                    focus_areas=["testing", "analysis"],
+                    time_range="past_week",
+                    depth=ResearchDepth.BASIC,
+                ),
+                search_strategy=SearchStrategy(
+                    max_sources=10,
+                    source_types=[SourceType.NEWS],
+                    credibility_threshold=0.6,
+                ),
+                analysis_instructions="Analyze the collected example data.",
+            ),
+            output_schema=OutputSchema(
+                output_format=OutputFormat.MARKDOWN,
+                template="example_report",
+                page_structure=PageStructure(
+                    title_template="Example Research Report - {topic_name} - {date}",
+                    sections=[
+                        PageSection(
+                            name="Example Summary",
+                            type=SectionType.TEXT_BLOCK,
+                            content_source="summary",
+                            configuration=SectionConfiguration(
+                                max_length=200, include_key_points=True
+                            ),
+                            order=1,
+                        ),
+                        PageSection(
+                            name="Example Findings",
+                            type=SectionType.BULLET_LIST,
+                            content_source="findings",
+                            configuration=SectionConfiguration(
+                                max_items=5, include_sources=True
+                            ),
+                            order=2,
+                        ),
+                        PageSection(
+                            name="Example Analysis",
+                            type=SectionType.TOGGLE_BLOCKS,
+                            content_source="analysis",
+                            configuration=SectionConfiguration(
+                                group_by="category", include_confidence_scores=True
+                            ),
+                            order=3,
+                        ),
+                    ],
+                ),
+                content_processing=ContentProcessing(
+                    summary_length=SummaryLength.MEDIUM,
+                    include_confidence_scores=True,
+                    group_similar_findings=True,
+                ),
+            ),
+        ),
+        analysis_focus=["key_insights", "trends", "implications"],
+        output_requirements={
+            "format": "notion_page",
+            "include_summary": True,
+            "include_insights": True,
+            "include_recommendations": True,
+        },
+    ),
+    synthesis_phase={
+        "enabled": True,
+        "output_formats": ["notion_page", "markdown", "json"],
+        "include_metadata": True,
+        "quality_checks": True,
+    },
+)
 
 # Template configurations for common research types
 TECH_RESEARCH_TEMPLATE = ResearchConfiguration(

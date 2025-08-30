@@ -8,7 +8,12 @@ from .llm_client import (
     get_llm_client,
 )
 from .llm_researcher import LLMResearcher, ResearchError
+from .local_analysis_client import LocalAnalysisClient, LocalAnalysisError
 from .notion_client import NotionClient
+from .web_scraping_research_client import (
+    WebScrapingResearchClient,
+    WebScrapingResearchError,
+)
 
 __all__ = [
     "QwenLLMClient",
@@ -20,4 +25,8 @@ __all__ = [
     "NotionClient",
     "ContentAnalyzer",
     "ContentAnalysisError",
+    "LocalAnalysisClient",
+    "LocalAnalysisError",
+    "WebScrapingResearchClient",
+    "WebScrapingResearchError",
 ]

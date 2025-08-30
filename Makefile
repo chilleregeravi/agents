@@ -33,7 +33,7 @@ setup: ## Set up development environment
 build: ## Build Docker images
 	@echo "$(BLUE)Building Docker image for $(AGENT_NAME)...$(NC)"
 	@if [ -f docker/Dockerfile ]; then \
-		docker build -f docker/Dockerfile -t $(AGENT_NAME):latest .; \
+		podman build -f docker/Dockerfile -t "harbor.ramaedge.local/agents/$(AGENT_NAME):latest" .; \
 		echo "$(GREEN)✓ Docker image built successfully$(NC)"; \
 	else \
 		echo "$(YELLOW)No Dockerfile found for $(AGENT_NAME)$(NC)"; \

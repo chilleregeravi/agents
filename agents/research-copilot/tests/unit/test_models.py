@@ -1,5 +1,7 @@
 """Unit tests for data models."""
 
+from unittest.mock import Mock
+
 import pytest
 from pydantic import ValidationError
 from src.models.research_config import (
@@ -7,6 +9,12 @@ from src.models.research_config import (
     AnalysisResult,
     ContentType,
     ImpactLevel,
+    OutputSchema,
+    PageSection,
+    PageStructure,
+    ResearchConfiguration,
+    ResearchData,
+    SectionType,
 )
 
 
@@ -35,25 +43,95 @@ class TestAnalysisRequest:
 
     def test_create_valid_request(self):
         """Test creating a valid analysis request."""
-        request = AnalysisRequest(
-            content="Research organization releases new findings with major improvements",
-            content_type=ContentType.ANNOUNCEMENT,
-            organization_hint="Research Institute",
+        research_data = ResearchData(
+            topic_name="Test Topic",
+            data_sources=["https://example.com"],
+            web_pages=[],
+            documents=[],
+            news_articles=[],
+            social_media=[],
+            collection_method="test",
+            total_content_length=100,
+            source_diversity=0.8,
+            content_freshness=0.9,
+            relevance_score=0.7,
         )
 
-        assert request.content_type == ContentType.ANNOUNCEMENT
-        assert request.organization_hint == "Research Institute"
-        assert "findings" in request.content
+        config = ResearchConfiguration(
+            name="Test Config",
+            description="Test configuration",
+            research_request=Mock(),
+            output_schema=OutputSchema(
+                output_format="notion_page",
+                template="research_report",
+                page_structure=PageStructure(
+                    title_template="Test - {date}",
+                    sections=[
+                        PageSection(
+                            name="Executive Summary",
+                            type=SectionType.TEXT_BLOCK,
+                            content_source="analysis_result",
+                        ),
+                        PageSection(
+                            name="Key Insights",
+                            type=SectionType.BULLET_LIST,
+                            content_source="insights",
+                        ),
+                    ],
+                ),
+            ),
+        )
+
+        request = AnalysisRequest(
+            research_data=research_data,
+            analysis_config=config,
+            analysis_focus=["focus1", "focus2"],
+            output_requirements={"format": "notion_page"},
+        )
+
+        assert request.research_data.topic_name == "Test Topic"
+        assert request.analysis_config.name == "Test Config"
+        assert "focus1" in request.analysis_focus
 
     def test_create_request_without_organization_hint(self):
-        """Test creating a request without organization hint."""
-        request = AnalysisRequest(
-            content="New research developments in the industry",
-            content_type=ContentType.BLOG_POST,
+        """Test creating a request with minimal parameters."""
+        research_data = ResearchData(
+            topic_name="Test Topic",
+            data_sources=[],
+            web_pages=[],
+            documents=[],
+            news_articles=[],
+            social_media=[],
+            collection_method="test",
+            total_content_length=0,
+            source_diversity=0.0,
+            content_freshness=0.0,
+            relevance_score=0.0,
         )
 
-        assert request.content_type == ContentType.BLOG_POST
-        assert request.organization_hint is None
+        config = ResearchConfiguration(
+            name="Test Config",
+            description="Test configuration",
+            research_request=Mock(),
+            output_schema=OutputSchema(
+                output_format="notion_page",
+                template="research_report",
+                page_structure=PageStructure(
+                    title_template="Test - {date}",
+                    sections=[
+                        PageSection(name="Executive Summary", content_type="text"),
+                    ],
+                ),
+            ),
+        )
+
+        request = AnalysisRequest(
+            research_data=research_data,
+            analysis_config=config,
+        )
+
+        assert request.research_data.topic_name == "Test Topic"
+        assert request.analysis_config.name == "Test Config"
 
 
 class TestAnalysisResult:
@@ -61,53 +139,182 @@ class TestAnalysisResult:
 
     def test_create_valid_result(self):
         """Test creating a valid analysis result."""
-        result = AnalysisResult(
-            content_type=ContentType.RELEASE,
-            organization="Research Institute",
-            product="Research Platform v2.0",
-            key_points=["Improved methodology", "Better data analysis"],
-            sentiment="positive",
-            impact_assessment=ImpactLevel.HIGH,
-            confidence_score=0.85,
+        research_data = ResearchData(
+            topic_name="Test Topic",
+            data_sources=[],
+            web_pages=[],
+            documents=[],
+            news_articles=[],
+            social_media=[],
+            collection_method="test",
+            total_content_length=100,
+            source_diversity=0.8,
+            content_freshness=0.9,
+            relevance_score=0.7,
         )
 
-        assert result.content_type == ContentType.RELEASE
-        assert result.organization == "Research Institute"
-        assert result.product == "Research Platform v2.0"
-        assert len(result.key_points) == 2
-        assert result.sentiment == "positive"
-        assert result.impact_assessment == ImpactLevel.HIGH
-        assert result.confidence_score == 0.85
+        config = ResearchConfiguration(
+            name="Test Config",
+            description="Test configuration",
+            research_request=Mock(),
+            output_schema=OutputSchema(
+                output_format="notion_page",
+                template="research_report",
+                page_structure=PageStructure(
+                    title_template="Test - {date}",
+                    sections=[
+                        PageSection(name="Executive Summary", content_type="text"),
+                    ],
+                ),
+            ),
+        )
+
+        analysis_request = AnalysisRequest(
+            research_data=research_data,
+            analysis_config=config,
+        )
+
+        result = AnalysisResult(
+            analysis_id="test_analysis_001",
+            analysis_request=analysis_request,
+            executive_summary="Test executive summary",
+            key_insights=[],
+            analysis_confidence=0.85,
+            coverage_score=0.8,
+            insight_quality=0.9,
+            processing_time_seconds=10.5,
+            llm_model_used="qwen2.5",
+        )
+
+        assert result.analysis_id == "test_analysis_001"
+        assert result.executive_summary == "Test executive summary"
+        assert result.analysis_confidence == 0.85
+        assert result.processing_time_seconds == 10.5
+        assert result.llm_model_used == "qwen2.5"
 
     def test_default_values(self):
         """Test default values for optional fields."""
-        result = AnalysisResult(
-            content_type=ContentType.ANNOUNCEMENT,
+        research_data = ResearchData(
+            topic_name="Test Topic",
+            data_sources=[],
+            web_pages=[],
+            documents=[],
+            news_articles=[],
+            social_media=[],
+            collection_method="test",
+            total_content_length=0,
+            source_diversity=0.0,
+            content_freshness=0.0,
+            relevance_score=0.0,
         )
 
-        assert result.sentiment == "neutral"
-        assert result.impact_assessment == ImpactLevel.LOW
-        assert result.confidence_score == 0.0
-        assert result.key_points == []
+        config = ResearchConfiguration(
+            name="Test Config",
+            description="Test configuration",
+            research_request=Mock(),
+            output_schema=OutputSchema(
+                output_format="notion_page",
+                template="research_report",
+                page_structure=PageStructure(
+                    title_template="Test - {date}",
+                    sections=[
+                        PageSection(name="Executive Summary", content_type="text"),
+                    ],
+                ),
+            ),
+        )
+
+        analysis_request = AnalysisRequest(
+            research_data=research_data,
+            analysis_config=config,
+        )
+
+        result = AnalysisResult(
+            analysis_id="test_analysis_002",
+            analysis_request=analysis_request,
+            executive_summary="Test summary",
+            analysis_confidence=0.5,
+            coverage_score=0.5,
+            insight_quality=0.5,
+            processing_time_seconds=5.0,
+            llm_model_used="qwen2.5",
+        )
+
+        assert result.trend_analysis is None
+        assert result.quantitative_findings == []
+        assert result.analysis_notes is None
 
     def test_confidence_score_validation(self):
         """Test confidence score validation."""
+        research_data = ResearchData(
+            topic_name="Test Topic",
+            data_sources=[],
+            web_pages=[],
+            documents=[],
+            news_articles=[],
+            social_media=[],
+            collection_method="test",
+            total_content_length=0,
+            source_diversity=0.0,
+            content_freshness=0.0,
+            relevance_score=0.0,
+        )
+
+        config = ResearchConfiguration(
+            name="Test Config",
+            description="Test configuration",
+            research_request=Mock(),
+            output_schema=OutputSchema(
+                output_format="notion_page",
+                template="research_report",
+                page_structure=PageStructure(
+                    title_template="Test - {date}",
+                    sections=[
+                        PageSection(name="Executive Summary", content_type="text"),
+                    ],
+                ),
+            ),
+        )
+
+        analysis_request = AnalysisRequest(
+            research_data=research_data,
+            analysis_config=config,
+        )
+
         # Valid confidence score
         result = AnalysisResult(
-            content_type=ContentType.RELEASE,
-            confidence_score=0.5,
+            analysis_id="test_analysis_003",
+            analysis_request=analysis_request,
+            executive_summary="Test summary",
+            analysis_confidence=0.5,
+            coverage_score=0.5,
+            insight_quality=0.5,
+            processing_time_seconds=5.0,
+            llm_model_used="qwen2.5",
         )
-        assert result.confidence_score == 0.5
+        assert result.analysis_confidence == 0.5
 
-        # Invalid confidence score (should be clamped or raise error)
+        # Invalid confidence score (should raise error)
         with pytest.raises(ValidationError):
             AnalysisResult(
-                content_type=ContentType.RELEASE,
-                confidence_score=1.5,  # Above maximum
+                analysis_id="test_analysis_004",
+                analysis_request=analysis_request,
+                executive_summary="Test summary",
+                analysis_confidence=1.5,  # Above maximum
+                coverage_score=0.5,
+                insight_quality=0.5,
+                processing_time_seconds=5.0,
+                llm_model_used="qwen2.5",
             )
 
         with pytest.raises(ValidationError):
             AnalysisResult(
-                content_type=ContentType.RELEASE,
-                confidence_score=-0.1,  # Below minimum
+                analysis_id="test_analysis_005",
+                analysis_request=analysis_request,
+                executive_summary="Test summary",
+                analysis_confidence=-0.1,  # Below minimum
+                coverage_score=0.5,
+                insight_quality=0.5,
+                processing_time_seconds=5.0,
+                llm_model_used="qwen2.5",
             )

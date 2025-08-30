@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-scraper-config
+data:
+  # Example API configuration
+  github-api.yaml: |
+    name: "GitHub API Scraper"
+    description: "Example GitHub API configuration"
+    base_url: "https://api.github.com"
+    authentication:
+      type: "bearer_token"
+      bearer_token: "$GITHUB_TOKEN"
+    endpoints:
+      - name: "user_info"
+        url: "/user"
+        method: "GET"
+    rate_limit:
+      requests_per_minute: 30
+      requests_per_hour: 5000
+      delay_between_requests: 2.0
+    data_format: "json"
+    transformation:
+      field_mapping: {}
+      field_filters: {}
+      data_validation: {}
+    output_config:
+      format: "json"
+      filename: "github_data"
+    enabled: true
+
+
